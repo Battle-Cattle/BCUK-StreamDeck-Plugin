@@ -7,27 +7,31 @@ import streamDeck, {
 	SingletonAction,
 	type WillAppearEvent,
 } from "@elgato/streamdeck";
+import { apiRequest, type Connection, getConnection, logFailure } from "../api";
+import { setLastJoinedGuildId } from "../voiceState";
 
+// Per-button settings: just the chosen channel (and its guild, so Leave Voice can target it).
+// The channel list for the dropdown is kept in memory, not here — see play-sfx.ts for why.
 interface JoinVoiceSettings extends JsonObject {
 	[key: string]: JsonValue;
 	channelId: string;
-	cachedChannels: VoiceChannel[];
+	guildId: string;
+}
+
+// Settings saved by plugin versions <= 1.1.x, which stored the channel list on every button.
+interface LegacyJoinVoiceSettings extends JoinVoiceSettings {
+	cachedChannels?: JsonValue;
 }
 
 interface VoiceChannel extends JsonObject {
 	[key: string]: JsonValue;
 	id: string;
 	name: string;
+	guildId: string;
+	guildName: string | null;
 }
 
-interface GlobalSettings extends JsonObject {
-	[key: string]: JsonValue;
-	host: string;
-	port: number;
-	apiKey: string;
-}
-
-type PiToPluginMsg = { event: "refreshChannels"; host: string; port: number; apiKey: string };
+type PiToPluginMsg = { event: "refreshChannels"; serverUrl: string; apiKey: string };
 
 interface PluginToPiMsg extends JsonObject {
 	[key: string]: JsonValue;
@@ -36,181 +40,101 @@ interface PluginToPiMsg extends JsonObject {
 	error?: string;
 }
 
-const DEFAULT_SETTINGS: JoinVoiceSettings = {
-	channelId: "",
-	cachedChannels: [],
-};
-
-const DEFAULT_GLOBAL: GlobalSettings = {
-	host: "localhost",
-	port: 3000,
-	apiKey: "",
-};
-
-const TIMEOUT_MS = 20000;
-
 @action({ UUID: "com.expiredminotaur.bcuk.join" })
 export class JoinVoiceAction extends SingletonAction<JoinVoiceSettings> {
-	private cachedGlobal: GlobalSettings = { ...DEFAULT_GLOBAL };
-
-	constructor() {
-		super();
-		streamDeck.settings.onDidReceiveGlobalSettings<GlobalSettings>((ev) => {
-			this.cachedGlobal = { ...DEFAULT_GLOBAL, ...ev.settings };
-		});
-		void streamDeck.settings.getGlobalSettings();
-	}
+	private channelCatalog: VoiceChannel[] = [];
 
 	override async onKeyDown(ev: KeyDownEvent<JoinVoiceSettings>): Promise<void> {
-		const { channelId } = { ...DEFAULT_SETTINGS, ...ev.payload.settings };
-		const { host, port, apiKey } = this.cachedGlobal;
-
+		const { channelId, guildId } = ev.payload.settings;
 		if (!channelId) {
 			streamDeck.logger.warn("Join Voice: no channel configured.");
 			await ev.action.showAlert();
 			return;
 		}
 
-		const url = `http://${host}:${port}/api/streamdeck/voice/join`;
-
-		try {
-			const response = await fetchWithTimeout(
-				url,
-				{
-					method: "POST",
-					headers: {
-						"Content-Type": "application/json",
-						Authorization: `Bearer ${apiKey}`,
-					},
-					body: JSON.stringify({ channelId }),
-				},
-				TIMEOUT_MS,
-			);
-
-			if (response.ok) {
-				await ev.action.showOk();
-				return;
-			}
-
-			switch (response.status) {
-				case 401:
-					streamDeck.logger.error("Join Voice: Invalid or unapproved API key.");
-					await ev.action.showAlert();
-					break;
-				case 404:
-					streamDeck.logger.error(`Join Voice: Channel not found — "${channelId}".`);
-					await ev.action.showAlert();
-					break;
-				case 503:
-					streamDeck.logger.warn("Join Voice: Bot not ready or already in a channel.");
-					await ev.action.showAlert();
-					break;
-				default:
-					streamDeck.logger.error(`Join Voice: Unexpected status ${response.status}.`);
-					await ev.action.showAlert();
-					break;
-			}
-		} catch (err) {
-			streamDeck.logger.error(`Join Voice: Network error — ${err}`);
-			await ev.action.showAlert();
+		const result = await apiRequest(getConnection(), "/voice/join", { channelId });
+		if (result.ok) {
+			setLastJoinedGuildId(guildId || null);
+			await ev.action.showOk();
+			return;
 		}
+		logFailure("Join Voice", result);
+		await ev.action.showAlert();
 	}
 
 	override async onWillAppear(ev: WillAppearEvent<JoinVoiceSettings>): Promise<void> {
-		if (!ev.payload.settings.channelId) {
-			await ev.action.setSettings({ ...DEFAULT_SETTINGS, ...ev.payload.settings });
+		const settings = ev.payload.settings as LegacyJoinVoiceSettings;
+		if (!settings.channelId || "cachedChannels" in settings) {
+			await ev.action.setSettings({ channelId: settings.channelId ?? "", guildId: settings.guildId ?? "" });
 		}
 	}
 
 	override async onPropertyInspectorDidAppear(
-		ev: PropertyInspectorDidAppearEvent<JoinVoiceSettings>,
+		_ev: PropertyInspectorDidAppearEvent<JoinVoiceSettings>,
 	): Promise<void> {
-		const settings = await ev.action.getSettings();
-		const channels = settings.cachedChannels ?? [];
-		if (channels.length > 0) {
+		if (this.channelCatalog.length > 0) {
 			await streamDeck.ui.sendToPropertyInspector({
 				event: "channelsLoaded",
-				channels,
+				channels: this.channelCatalog,
 			} satisfies PluginToPiMsg);
+			return;
+		}
+		const conn = getConnection();
+		if (conn.apiKey) {
+			await this.fetchAndPushChannels(conn);
 		}
 	}
 
 	override async onSendToPlugin(
 		ev: SendToPluginEvent<PiToPluginMsg, JoinVoiceSettings>,
 	): Promise<void> {
-		const msg = ev.payload;
-		if (msg.event === "refreshChannels") {
-			streamDeck.logger.info(`Refresh channels: host=${msg.host} port=${msg.port}`);
-			await this.fetchAndPushChannels(ev.action, msg.host, msg.port, msg.apiKey);
+		if (ev.payload.event === "refreshChannels") {
+			await this.fetchAndPushChannels({ serverUrl: ev.payload.serverUrl, apiKey: ev.payload.apiKey });
 		}
 	}
 
-	private async fetchAndPushChannels(
-		actionRef: Parameters<JoinVoiceAction["onSendToPlugin"]>[0]["action"],
-		host: string,
-		port: number,
-		apiKey: string,
-	): Promise<void> {
-		const url = `http://${host}:${port}/api/streamdeck/voice/channels`;
-		streamDeck.logger.info(`Fetching channels from ${url}`);
-
-		try {
-			const settings = await actionRef.getSettings();
-			const response = await fetchWithTimeout(
-				url,
-				{ headers: { Authorization: `Bearer ${apiKey}` } },
-				TIMEOUT_MS,
-			);
-
-			streamDeck.logger.info(`Channel fetch status: ${response.status}`);
-
-			if (!response.ok) {
-				await streamDeck.ui.sendToPropertyInspector({
-					event: "channelsError",
-					error: `Server returned ${response.status}`,
-				} satisfies PluginToPiMsg);
-				return;
-			}
-
-			const contentType = response.headers.get("content-type") ?? "";
-			if (!contentType.includes("application/json")) {
-				await streamDeck.ui.sendToPropertyInspector({
-					event: "channelsError",
-					error: `Server returned non-JSON response — check host/port settings`,
-				} satisfies PluginToPiMsg);
-				return;
-			}
-
-			const data = (await response.json()) as { channels: VoiceChannel[] };
-			const channels = data.channels ?? [];
-
-			streamDeck.logger.info(`Channels received: ${channels.length}`);
-
-			await actionRef.setSettings({ ...settings, cachedChannels: channels });
-			await streamDeck.ui.sendToPropertyInspector({
-				event: "channelsLoaded",
-				channels,
-			} satisfies PluginToPiMsg);
-		} catch (err) {
-			streamDeck.logger.error(`Channel fetch error: ${err}`);
+	/** Fetches the voice channels of every server the key is approved for and sends them to the PI. */
+	private async fetchAndPushChannels(conn: Connection): Promise<void> {
+		const result = await apiRequest<{ guilds?: JsonValue }>(conn, "/voice/channels");
+		if (!result.ok) {
+			logFailure("Fetch channels", result);
 			await streamDeck.ui.sendToPropertyInspector({
 				event: "channelsError",
-				error: String(err),
+				error: result.error,
 			} satisfies PluginToPiMsg);
+			return;
 		}
+
+		this.channelCatalog = flattenGuildChannels(result.data.guilds);
+		streamDeck.logger.info(`Channels received: ${this.channelCatalog.length}`);
+		await streamDeck.ui.sendToPropertyInspector({
+			event: "channelsLoaded",
+			channels: this.channelCatalog,
+		} satisfies PluginToPiMsg);
 	}
 }
 
-async function fetchWithTimeout(
-	url: string,
-	init: RequestInit,
-	timeoutMs: number,
-): Promise<Response> {
-	const controller = new AbortController();
-	const timer = setTimeout(() => controller.abort(), timeoutMs);
-	try {
-		return await fetch(url, { ...init, signal: controller.signal });
-	} finally {
-		clearTimeout(timer);
+/**
+ * Flattens the bot's `guilds: [{ guildId, guildName?, channels: [{ id, name }] }]` listing into
+ * one channel list, each tagged with its guild. Malformed entries are skipped.
+ */
+export function flattenGuildChannels(raw: JsonValue | undefined): VoiceChannel[] {
+	if (!Array.isArray(raw)) return [];
+	const channels: VoiceChannel[] = [];
+	for (const guild of raw) {
+		if (!guild || typeof guild !== "object" || Array.isArray(guild)) continue;
+		const { guildId, guildName, channels: guildChannels } = guild;
+		if (typeof guildId !== "string" || !Array.isArray(guildChannels)) continue;
+		for (const ch of guildChannels) {
+			if (!ch || typeof ch !== "object" || Array.isArray(ch)) continue;
+			if (typeof ch.id !== "string" || typeof ch.name !== "string") continue;
+			channels.push({
+				id: ch.id,
+				name: ch.name,
+				guildId,
+				guildName: typeof guildName === "string" ? guildName : null,
+			});
+		}
 	}
+	return channels;
 }
