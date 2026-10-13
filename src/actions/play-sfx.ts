@@ -62,18 +62,26 @@ const TIMEOUT_MS = 20000;
 @action({ UUID: "com.expiredminotaur.bcuk.play" })
 export class PlaySfxAction extends SingletonAction<PlaySfxSettings> {
 	private cachedGlobal: GlobalSettings = { ...DEFAULT_GLOBAL };
+	private globalSettingsLoaded = false;
 	// Shared by every Play SFX button: the catalog is global to the bot, not per button.
 	private triggerCatalog: SfxTrigger[] = [];
 
+	/** Tracks the plugin-wide connection settings and primes them for the first key press. */
 	constructor() {
 		super();
 		streamDeck.settings.onDidReceiveGlobalSettings<GlobalSettings>((ev) => {
-			this.cachedGlobal = { ...DEFAULT_GLOBAL, ...ev.settings };
+			const next = { ...DEFAULT_GLOBAL, ...ev.settings };
+			// A list fetched from a different bot or with a different key is no longer valid. The
+			// first delivery only replaces the defaults, so it keeps lists migrated from buttons.
+			if (this.globalSettingsLoaded && !sameConnection(this.cachedGlobal, next)) this.triggerCatalog = [];
+			this.cachedGlobal = next;
+			this.globalSettingsLoaded = true;
 		});
 		// Prime the cache immediately so onKeyDown has real settings on first press.
 		void streamDeck.settings.getGlobalSettings();
 	}
 
+	/** Plays the button's configured command on the bot, showing OK or an alert on the key. */
 	override async onKeyDown(ev: KeyDownEvent<PlaySfxSettings>): Promise<void> {
 		const { command } = { ...DEFAULT_SETTINGS, ...ev.payload.settings };
 		const { host, port, apiKey } = this.cachedGlobal;
@@ -132,11 +140,13 @@ export class PlaySfxAction extends SingletonAction<PlaySfxSettings> {
 		}
 	}
 
+	/**
+	 * Migrates a button's settings to hold only its command, folding any legacy per-button
+	 * trigger list into the shared in-memory catalog first.
+	 */
 	override async onWillAppear(ev: WillAppearEvent<PlaySfxSettings>): Promise<void> {
 		const settings = ev.payload.settings as LegacyPlaySfxSettings;
-		if (this.triggerCatalog.length === 0 && Array.isArray(settings.cachedTriggers)) {
-			this.triggerCatalog = toCatalog(settings.cachedTriggers);
-		}
+		this.triggerCatalog = mergeTriggers(this.triggerCatalog, toCatalog(settings.cachedTriggers));
 		// Rewrite settings that are missing a command or still carry the legacy catalog, so
 		// every later event for this button carries only the command.
 		if (!settings.command || "cachedTriggers" in settings) {
@@ -144,6 +154,7 @@ export class PlaySfxAction extends SingletonAction<PlaySfxSettings> {
 		}
 	}
 
+	/** Sends the catalog to a newly opened property inspector, fetching it first if empty. */
 	override async onPropertyInspectorDidAppear(
 		ev: PropertyInspectorDidAppearEvent<PlaySfxSettings>,
 	): Promise<void> {
@@ -162,6 +173,7 @@ export class PlaySfxAction extends SingletonAction<PlaySfxSettings> {
 		}
 	}
 
+	/** Handles the property inspector's "Refresh Commands" request. */
 	override async onSendToPlugin(
 		ev: SendToPluginEvent<PiToPluginMsg, PlaySfxSettings>,
 	): Promise<void> {
@@ -172,6 +184,7 @@ export class PlaySfxAction extends SingletonAction<PlaySfxSettings> {
 		}
 	}
 
+	/** Fetches the bot's SFX catalog, keeps it in memory and sends it to the property inspector. */
 	private async fetchAndPushTriggers(
 		host: string,
 		port: number,
@@ -245,6 +258,21 @@ function toCatalog(raw: JsonValue | undefined): SfxTrigger[] {
 	return triggers;
 }
 
+/**
+ * Adds `extra` triggers not already in `existing` (matched by command), keeping existing order.
+ * Each legacy button carried its own snapshot of the catalog, so later buttons can add entries.
+ */
+function mergeTriggers(existing: SfxTrigger[], extra: SfxTrigger[]): SfxTrigger[] {
+	const seen = new Set(existing.map((t) => t.triggerCommand));
+	return [...existing, ...extra.filter((t) => !seen.has(t.triggerCommand))];
+}
+
+/** Whether two global-settings snapshots point at the same bot with the same key. */
+function sameConnection(a: GlobalSettings, b: GlobalSettings): boolean {
+	return a.host === b.host && a.port === b.port && a.apiKey === b.apiKey;
+}
+
+/** `fetch` that aborts after `timeoutMs`. */
 async function fetchWithTimeout(
 	url: string,
 	init: RequestInit,
