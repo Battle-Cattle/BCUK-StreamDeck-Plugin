@@ -1,0 +1,79 @@
+{
+	"Name": "BCUK Bot",
+	"Version": "1.1.0.0",
+	"Author": "BCUK",
+	"Description": "Control BCUK Bot directly from your Stream Deck.",
+	"Icon": "imgs/plugin/marketplace",
+	"Category": "BCUK Bot",
+	"CategoryIcon": "imgs/plugin/category-icon",
+	"CodePath": "bin/plugin.js",
+	"SDKVersion": 3,
+	"Software": {
+		"MinimumVersion": "6.9"
+	},
+	"OS": [
+		{
+			"Platform": "windows",
+			"MinimumVersion": "10"
+		},
+		{
+			"Platform": "mac",
+			"MinimumVersion": "12"
+		}
+	],
+	"Nodejs": {
+		"Version": "20",
+		"Debug": "enabled"
+	},
+	"UUID": "com.expiredminotaur.bcuk",
+	"Actions": [
+		{
+			"Name": "Play SFX",
+			"UUID": "com.expiredminotaur.bcuk.play",
+			"Icon": "imgs/actions/play-sfx/icon",
+			"Tooltip": "Trigger a BCUK Bot sound effect.",
+			"PropertyInspectorPath": "ui/play-sfx.html",
+			"Controllers": [
+				"Keypad"
+			],
+			"States": [
+				{
+					"Image": "imgs/actions/play-sfx/key-default",
+					"Name": "Default"
+				}
+			]
+		},
+		{
+			"Name": "Join Voice",
+			"UUID": "com.expiredminotaur.bcuk.join",
+			"Icon": "imgs/actions/join-voice/icon",
+			"Tooltip": "Join a Discord voice channel.",
+			"PropertyInspectorPath": "ui/join-voice.html",
+			"Controllers": [
+				"Keypad"
+			],
+			"States": [
+				{
+					"Image": "imgs/actions/join-voice/key-default",
+					"Name": "Default"
+				}
+			]
+		},
+		{
+			"Name": "Leave Voice",
+			"UUID": "com.expiredminotaur.bcuk.leave",
+			"Icon": "imgs/actions/leave-voice/icon",
+			"Tooltip": "Leave the current Discord voice channel.",
+			"PropertyInspectorPath": "ui/leave-voice.html",
+			"Controllers": [
+				"Keypad"
+			],
+			"States": [
+				{
+					"Image": "imgs/actions/leave-voice/key-default",
+					"Name": "Default"
+				}
+			]
+		}
+	]
+}

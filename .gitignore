@@ -1,0 +1,13 @@
+node_modules/
+com.expiredminotaur.bcuk.sdPlugin/bin/
+*.streamDeckPlugin
+.claude/settings.local.json
+
+# Logs
+logs/
+*.log
+
+# OS / editor
+.DS_Store
+Thumbs.db
+.vscode/

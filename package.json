@@ -1,0 +1,23 @@
+{
+  "name": "bcuk-bot",
+  "version": "1.0.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "build": "rolldown -c rolldown.config.ts",
+    "watch": "rolldown -c rolldown.config.ts -w",
+    "placeholders": "node scripts/gen-placeholders.js",
+    "pack": "streamdeck pack com.expiredminotaur.bcuk.sdPlugin --force"
+  },
+  "dependencies": {
+    "@elgato/streamdeck": "^2.1.0"
+  },
+  "devDependencies": {
+    "@elgato/cli": "^1.7.1",
+    "@tsconfig/node20": "^20.1.2",
+    "@types/node": "^20.19.0",
+    "rolldown": "^1.0.0-rc.6",
+    "sharp": "^0.33.0",
+    "typescript": "^5.2.2"
+  }
+}

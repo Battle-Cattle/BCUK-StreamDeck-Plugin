@@ -1,0 +1,114 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+	<meta charset="utf-8" />
+	<title>Leave Voice Channel</title>
+	<style>
+		:root {
+			--bg: #2d2d2d;
+			--surface: #3d3d3d;
+			--border: #4a4a4a;
+			--text: #e0e0e0;
+			--label: #9e9e9e;
+			--accent: #e97e10;
+		}
+
+		* { box-sizing: border-box; margin: 0; padding: 0; }
+
+		body {
+			font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+			font-size: 13px;
+			color: var(--text);
+			background: var(--bg);
+			padding: 12px;
+		}
+
+		.row {
+			display: flex;
+			align-items: center;
+			margin-bottom: 8px;
+			gap: 8px;
+		}
+
+		.row label {
+			width: 72px;
+			min-width: 72px;
+			color: var(--label);
+			font-size: 11px;
+			text-transform: uppercase;
+			letter-spacing: 0.04em;
+		}
+
+		.row input {
+			flex: 1;
+			min-width: 0;
+			background: var(--surface);
+			border: 1px solid var(--border);
+			color: var(--text);
+			border-radius: 3px;
+			padding: 4px 6px;
+			font-size: 13px;
+			outline: none;
+		}
+
+		.row input:focus { border-color: var(--accent); }
+	</style>
+</head>
+<body>
+
+<div class="row">
+	<label for="host">Host</label>
+	<input type="text" id="host" placeholder="localhost" />
+</div>
+<div class="row">
+	<label for="port">Port</label>
+	<input type="number" id="port" placeholder="3000" min="1" max="65535" />
+</div>
+<div class="row">
+	<label for="apiKey">API Key</label>
+	<input type="password" id="apiKey" placeholder="64-char hex key" autocomplete="off" spellcheck="false" />
+</div>
+
+<script>
+	let ws = null;
+	let context = null;
+
+	function connectElgatoStreamDeckSocket(port, uuid, registerEvent) {
+		ws = new WebSocket(`ws://127.0.0.1:${port}`);
+
+		ws.onopen = () => {
+			context = uuid;
+			ws.send(JSON.stringify({ event: registerEvent, uuid }));
+			ws.send(JSON.stringify({ event: "getGlobalSettings", context: uuid }));
+		};
+
+		ws.onmessage = (e) => {
+			const data = JSON.parse(e.data);
+			if (data.event === "didReceiveGlobalSettings") {
+				applyGlobalSettings(data.payload.settings || {});
+			}
+		};
+	}
+
+	function applyGlobalSettings(s) {
+		document.getElementById("host").value = s.host ?? "localhost";
+		document.getElementById("port").value = s.port ?? 3000;
+		if (s.apiKey) document.getElementById("apiKey").value = s.apiKey;
+	}
+
+	function saveGlobal() {
+		const globals = {
+			host: document.getElementById("host").value.trim() || "localhost",
+			port: parseInt(document.getElementById("port").value, 10) || 3000,
+			apiKey: document.getElementById("apiKey").value.trim(),
+		};
+		ws.send(JSON.stringify({ event: "setGlobalSettings", context, payload: globals }));
+	}
+
+	document.getElementById("host").addEventListener("change", saveGlobal);
+	document.getElementById("port").addEventListener("change", saveGlobal);
+	document.getElementById("apiKey").addEventListener("change", saveGlobal);
+</script>
+
+</body>
+</html>
