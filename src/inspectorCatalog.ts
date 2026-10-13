@@ -10,6 +10,8 @@ export interface InspectorCatalogOptions<T extends JsonValue> {
 	path: string;
 	/** Extracts the list from the response body, dropping malformed entries. */
 	parse: (body: JsonObject) => T[];
+	/** Identifies an entry, for merging lists seeded from several legacy buttons. */
+	key: (item: T) => string;
 	/** Message event names the property inspector listens for, and the payload key for the list. */
 	loadedEvent: string;
 	errorEvent: string;
@@ -23,13 +25,21 @@ export interface InspectorCatalogOptions<T extends JsonValue> {
  */
 export class InspectorCatalog<T extends JsonValue> {
 	private items: T[] = [];
+	// The connection `items` were fetched with, or null for items seeded from legacy button
+	// settings (which predate any connection change, so they're accepted as-is).
+	private loadedFor: string | null = null;
 
 	/** @param options How the list is fetched and delivered. */
 	constructor(private readonly options: InspectorCatalogOptions<T>) {}
 
-	/** Seeds the list (e.g. from legacy per-button settings) when nothing has been loaded yet. */
+	/**
+	 * Adds entries from legacy per-button settings that aren't already in the list (matched by
+	 * `key`). Each legacy button carried its own snapshot, so later buttons can add entries.
+	 */
 	seed(items: T[]): void {
-		if (this.items.length === 0) this.items = items;
+		const { key } = this.options;
+		const seen = new Set(this.items.map(key));
+		this.items = [...this.items, ...items.filter((item) => !seen.has(key(item)))];
 	}
 
 	/**
@@ -37,11 +47,16 @@ export class InspectorCatalog<T extends JsonValue> {
 	 * nothing has been loaded since the plugin started and an API key is configured.
 	 */
 	async show(): Promise<void> {
+		const conn = getConnection();
+		// A list fetched from a different bot or with a different key is no longer valid.
+		if (this.loadedFor !== null && this.loadedFor !== connectionId(conn)) {
+			this.items = [];
+			this.loadedFor = null;
+		}
 		if (this.items.length > 0) {
 			await this.send({ event: this.options.loadedEvent, [this.options.listKey]: this.items });
 			return;
 		}
-		const conn = getConnection();
 		if (conn.apiKey) await this.refresh(conn);
 	}
 
@@ -58,6 +73,7 @@ export class InspectorCatalog<T extends JsonValue> {
 			return;
 		}
 		this.items = parse(result.data);
+		this.loadedFor = connectionId(conn);
 		streamDeck.logger.info(`Fetched ${this.items.length} ${label}`);
 		await this.send({ event: loadedEvent, [listKey]: this.items });
 	}
@@ -66,4 +82,9 @@ export class InspectorCatalog<T extends JsonValue> {
 	private async send(message: JsonObject): Promise<void> {
 		await streamDeck.ui.sendToPropertyInspector(message);
 	}
+}
+
+/** Identifies the bot and key a list was fetched with. */
+function connectionId(conn: Connection): string {
+	return `${conn.serverUrl}\n${conn.apiKey}`;
 }
