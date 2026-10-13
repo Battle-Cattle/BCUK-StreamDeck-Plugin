@@ -1,9 +1,5 @@
-import { describe, expect, it, vi } from "vitest";
-import { streamDeckModuleMock } from "../test-utils/streamdeckMock";
-
-vi.mock("@elgato/streamdeck", () => streamDeckModuleMock());
-
-import { flattenGuildChannels } from "./join-voice";
+import { describe, expect, it } from "vitest";
+import { flattenGuildChannels } from "./voiceChannels";
 
 describe("flattenGuildChannels", () => {
 	it("flattens the bot's per-guild listing, tagging each channel with its guild", () => {

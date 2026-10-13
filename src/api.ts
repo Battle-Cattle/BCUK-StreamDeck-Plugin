@@ -80,6 +80,8 @@ export function normalizeServerUrl(input: string): string | null {
 	return `${url.origin}${url.pathname.replace(/\/+$/, "")}`;
 }
 
+type ApiFailure = Extract<ApiResult<never>, { ok: false }>;
+
 /**
  * Calls the bot's Stream Deck API and parses its `{ ok, error }` JSON envelope.
  * @param conn Server URL and API key to use.
@@ -89,38 +91,56 @@ export function normalizeServerUrl(input: string): string | null {
  *   bot's own error message where it sent one.
  */
 export async function apiRequest<T>(conn: Connection, path: string, body?: JsonObject): Promise<ApiResult<T>> {
-	const baseUrl = normalizeServerUrl(conn.serverUrl);
-	if (!baseUrl) return { ok: false, status: null, error: "Server URL is not set or invalid" };
-	if (!conn.apiKey) return { ok: false, status: null, error: "API key is not set" };
-
-	const headers: Record<string, string> = { Authorization: `Bearer ${conn.apiKey}` };
-	if (body) headers["Content-Type"] = "application/json";
+	const request = buildRequest(conn, path, body);
+	if ("error" in request) return request;
 
 	const controller = new AbortController();
 	const timer = setTimeout(() => controller.abort(), REQUEST_TIMEOUT_MS);
 	try {
-		const response = await fetch(`${baseUrl}/api/streamdeck${path}`, {
-			method: body ? "POST" : "GET",
-			headers,
-			body: body ? JSON.stringify(body) : undefined,
-			signal: controller.signal,
-		});
+		const response = await fetch(request.url, { ...request.init, signal: controller.signal });
 		// Read the body inside the timeout too, not just the headers.
-		const text = await response.text();
-		const parsed = parseJson(text);
-		if (response.ok) {
-			if (parsed === undefined) {
-				return { ok: false, status: response.status, error: "Server returned a non-JSON response — check the Server URL" };
-			}
-			return { ok: true, data: parsed as T };
-		}
-		return { ok: false, status: response.status, error: errorMessage(response.status, parsed) };
+		return toResult<T>(response.status, response.ok, await response.text());
 	} catch (err) {
 		const aborted = err instanceof Error && err.name === "AbortError";
 		return { ok: false, status: null, error: aborted ? "Request timed out" : `Network error — ${String(err)}` };
 	} finally {
 		clearTimeout(timer);
 	}
+}
+
+/**
+ * Builds the URL and fetch options for a call, or a failure if the settings aren't usable.
+ * @param conn Server URL and API key to use.
+ * @param path Path under `/api/streamdeck`.
+ * @param body JSON body to POST; omit for a GET.
+ */
+function buildRequest(conn: Connection, path: string, body?: JsonObject): { url: string; init: RequestInit } | ApiFailure {
+	const baseUrl = normalizeServerUrl(conn.serverUrl);
+	if (!baseUrl) return { ok: false, status: null, error: "Server URL is not set or invalid" };
+	if (!conn.apiKey) return { ok: false, status: null, error: "API key is not set" };
+
+	const headers: Record<string, string> = { Authorization: `Bearer ${conn.apiKey}` };
+	if (body) headers["Content-Type"] = "application/json";
+	return {
+		url: `${baseUrl}/api/streamdeck${path}`,
+		init: { method: body ? "POST" : "GET", headers, body: body ? JSON.stringify(body) : undefined },
+	};
+}
+
+/**
+ * Turns a response into an {@link ApiResult}. A success must carry JSON — anything else (e.g.
+ * a proxy's HTML page) means the Server URL points somewhere other than the bot.
+ * @param status HTTP status.
+ * @param ok Whether the status is 2xx.
+ * @param text The response body.
+ */
+function toResult<T>(status: number, ok: boolean, text: string): ApiResult<T> {
+	const parsed = parseJson(text);
+	if (!ok) return { ok: false, status, error: errorMessage(status, parsed) };
+	if (parsed === undefined) {
+		return { ok: false, status, error: "Server returned a non-JSON response — check the Server URL" };
+	}
+	return { ok: true, data: parsed as T };
 }
 
 /** Parses `text` as JSON, or returns undefined if it isn't. */
