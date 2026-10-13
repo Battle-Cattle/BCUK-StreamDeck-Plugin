@@ -63,6 +63,9 @@ const TIMEOUT_MS = 20000;
 export class PlaySfxAction extends SingletonAction<PlaySfxSettings> {
 	private cachedGlobal: GlobalSettings = { ...DEFAULT_GLOBAL };
 	private globalSettingsLoaded = false;
+	// Bumped whenever the connection changes, so a fetch started for the old one can't
+	// overwrite the cleared catalog when it completes.
+	private connectionGeneration = 0;
 	// Shared by every Play SFX button: the catalog is global to the bot, not per button.
 	private triggerCatalog: SfxTrigger[] = [];
 
@@ -73,7 +76,10 @@ export class PlaySfxAction extends SingletonAction<PlaySfxSettings> {
 			const next = { ...DEFAULT_GLOBAL, ...ev.settings };
 			// A list fetched from a different bot or with a different key is no longer valid. The
 			// first delivery only replaces the defaults, so it keeps lists migrated from buttons.
-			if (this.globalSettingsLoaded && !sameConnection(this.cachedGlobal, next)) this.triggerCatalog = [];
+			if (this.globalSettingsLoaded && !sameConnection(this.cachedGlobal, next)) {
+				this.triggerCatalog = [];
+				this.connectionGeneration++;
+			}
 			this.cachedGlobal = next;
 			this.globalSettingsLoaded = true;
 		});
@@ -190,6 +196,7 @@ export class PlaySfxAction extends SingletonAction<PlaySfxSettings> {
 		port: number,
 		apiKey: string,
 	): Promise<void> {
+		const generation = this.connectionGeneration;
 		const url = `http://${host}:${port}/api/streamdeck/sfx`;
 		streamDeck.logger.info(`Fetching triggers from ${url}`);
 
@@ -223,6 +230,13 @@ export class PlaySfxAction extends SingletonAction<PlaySfxSettings> {
 			const triggers = toCatalog(data.triggers);
 
 			streamDeck.logger.info(`Triggers received: ${triggers.length}`);
+			// Only drop it if the connection changed since and this response isn't for the new
+			// one (a Refresh carries the inspector's new values, which may beat their settings echo).
+			const current = sameConnection(this.cachedGlobal, { host, port, apiKey });
+			if (generation !== this.connectionGeneration && !current) {
+				streamDeck.logger.info("Discarding triggers fetched for a previous connection.");
+				return;
+			}
 
 			this.triggerCatalog = triggers;
 			await streamDeck.ui.sendToPropertyInspector({
