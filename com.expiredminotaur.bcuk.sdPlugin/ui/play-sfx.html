@@ -113,7 +113,7 @@
 	let ws = null;
 	let context = null;
 
-	// Per-button settings (command + cachedTriggers)
+	// Per-button settings (just the command; the trigger list comes from the plugin)
 	let perButton = {};
 	// Global settings (host, port, apiKey) — maintained locally so we always
 	// send a complete object to setGlobalSettings (it replaces, not merges)
@@ -163,14 +163,10 @@
 	}
 
 	function applyPerButtonSettings(s) {
-		perButton = s;
-		// Populate dropdown from cached triggers; select saved command.
-		if (s.cachedTriggers && s.cachedTriggers.length > 0) {
-			populateDropdown(s.cachedTriggers, s.command || "");
-		}
-		// Belt-and-suspenders: if commandsLoaded already populated the dropdown
-		// before this event arrived, apply the saved selection now.
-		if (s.command) document.getElementById("command").value = s.command;
+		perButton = { command: s.command || "" };
+		// If commandsLoaded already populated the dropdown before this event
+		// arrived, apply the saved selection now.
+		if (perButton.command) document.getElementById("command").value = perButton.command;
 	}
 
 	function handlePluginMsg(payload) {
@@ -200,9 +196,9 @@
 		ws.send(JSON.stringify({ event: "setGlobalSettings", context, payload: globals }));
 	}
 
-	// Per-button: saves command (cachedTriggers is written by the plugin)
+	// Per-button: saves the command only
 	function saveCommand() {
-		perButton = { ...perButton, command: document.getElementById("command").value };
+		perButton = { command: document.getElementById("command").value };
 		ws.send(JSON.stringify({ event: "setSettings", context, payload: perButton }));
 	}
 

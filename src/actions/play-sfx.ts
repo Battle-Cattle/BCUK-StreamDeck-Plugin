@@ -8,17 +8,26 @@ import streamDeck, {
 	type WillAppearEvent,
 } from "@elgato/streamdeck";
 
+// Only the chosen command lives in per-button settings. Stream Deck sends a button's full
+// settings with every keyDown/keyUp/willAppear event, so anything stored here is re-sent (and
+// re-parsed) on every press. The trigger list used by the property inspector's dropdown is kept
+// in memory instead (see `triggerCatalog`).
 interface PlaySfxSettings extends JsonObject {
 	[key: string]: JsonValue;
 	command: string;
-	cachedTriggers: SfxTrigger[];
 }
 
+// Settings saved by plugin versions <= 1.1.0, which stored the whole trigger catalog on every
+// button. Read only so onWillAppear can migrate them away.
+interface LegacyPlaySfxSettings extends PlaySfxSettings {
+	cachedTriggers?: JsonValue;
+}
+
+// The fields the property inspector's dropdown needs; the bot's listing also includes each
+// trigger's files, description etc., which the plugin never uses.
 interface SfxTrigger extends JsonObject {
 	[key: string]: JsonValue;
-	triggerId: string;
 	triggerCommand: string;
-	description: string | null;
 	categoryName: string | null;
 }
 
@@ -40,7 +49,6 @@ interface PluginToPiMsg extends JsonObject {
 
 const DEFAULT_SETTINGS: PlaySfxSettings = {
 	command: "",
-	cachedTriggers: [],
 };
 
 const DEFAULT_GLOBAL: GlobalSettings = {
@@ -54,6 +62,8 @@ const TIMEOUT_MS = 20000;
 @action({ UUID: "com.expiredminotaur.bcuk.play" })
 export class PlaySfxAction extends SingletonAction<PlaySfxSettings> {
 	private cachedGlobal: GlobalSettings = { ...DEFAULT_GLOBAL };
+	// Shared by every Play SFX button: the catalog is global to the bot, not per button.
+	private triggerCatalog: SfxTrigger[] = [];
 
 	constructor() {
 		super();
@@ -123,21 +133,32 @@ export class PlaySfxAction extends SingletonAction<PlaySfxSettings> {
 	}
 
 	override async onWillAppear(ev: WillAppearEvent<PlaySfxSettings>): Promise<void> {
-		if (!ev.payload.settings.command) {
-			await ev.action.setSettings({ ...DEFAULT_SETTINGS, ...ev.payload.settings });
+		const settings = ev.payload.settings as LegacyPlaySfxSettings;
+		if (this.triggerCatalog.length === 0 && Array.isArray(settings.cachedTriggers)) {
+			this.triggerCatalog = toCatalog(settings.cachedTriggers);
+		}
+		// Rewrite settings that are missing a command or still carry the legacy catalog, so
+		// every later event for this button carries only the command.
+		if (!settings.command || "cachedTriggers" in settings) {
+			await ev.action.setSettings({ command: settings.command ?? "" });
 		}
 	}
 
 	override async onPropertyInspectorDidAppear(
 		ev: PropertyInspectorDidAppearEvent<PlaySfxSettings>,
 	): Promise<void> {
-		const settings = await ev.action.getSettings();
-		const triggers = settings.cachedTriggers ?? [];
-		if (triggers.length > 0) {
+		if (this.triggerCatalog.length > 0) {
 			await streamDeck.ui.sendToPropertyInspector({
 				event: "commandsLoaded",
-				triggers,
+				triggers: this.triggerCatalog,
 			} satisfies PluginToPiMsg);
+			return;
+		}
+		// Nothing loaded since the plugin started: fetch it now if a key is configured, so the
+		// dropdown isn't empty until the user clicks Refresh.
+		const { host, port, apiKey } = this.cachedGlobal;
+		if (apiKey) {
+			await this.fetchAndPushTriggers(host, port, apiKey);
 		}
 	}
 
@@ -147,12 +168,11 @@ export class PlaySfxAction extends SingletonAction<PlaySfxSettings> {
 		const msg = ev.payload;
 		if (msg.event === "refreshCommands") {
 			streamDeck.logger.info(`Refresh commands: host=${msg.host} port=${msg.port}`);
-			await this.fetchAndPushTriggers(ev.action, msg.host, msg.port, msg.apiKey);
+			await this.fetchAndPushTriggers(msg.host, msg.port, msg.apiKey);
 		}
 	}
 
 	private async fetchAndPushTriggers(
-		actionRef: Parameters<PlaySfxAction["onSendToPlugin"]>[0]["action"],
 		host: string,
 		port: number,
 		apiKey: string,
@@ -161,7 +181,6 @@ export class PlaySfxAction extends SingletonAction<PlaySfxSettings> {
 		streamDeck.logger.info(`Fetching triggers from ${url}`);
 
 		try {
-			const settings = await actionRef.getSettings();
 			const response = await fetchWithTimeout(
 				url,
 				{ headers: { Authorization: `Bearer ${apiKey}` } },
@@ -187,12 +206,12 @@ export class PlaySfxAction extends SingletonAction<PlaySfxSettings> {
 				return;
 			}
 
-			const data = (await response.json()) as { ok: boolean; triggers: SfxTrigger[] };
-			const triggers = data.triggers ?? [];
+			const data = (await response.json()) as { ok: boolean; triggers?: JsonValue };
+			const triggers = toCatalog(data.triggers);
 
 			streamDeck.logger.info(`Triggers received: ${triggers.length}`);
 
-			await actionRef.setSettings({ ...settings, cachedTriggers: triggers });
+			this.triggerCatalog = triggers;
 			await streamDeck.ui.sendToPropertyInspector({
 				event: "commandsLoaded",
 				triggers,
@@ -205,6 +224,25 @@ export class PlaySfxAction extends SingletonAction<PlaySfxSettings> {
 			} satisfies PluginToPiMsg);
 		}
 	}
+}
+
+/**
+ * Reduces a trigger listing (from the bot, or legacy per-button settings) to the fields the
+ * property inspector uses, dropping anything malformed.
+ */
+function toCatalog(raw: JsonValue | undefined): SfxTrigger[] {
+	if (!Array.isArray(raw)) return [];
+	const triggers: SfxTrigger[] = [];
+	for (const item of raw) {
+		if (!item || typeof item !== "object" || Array.isArray(item)) continue;
+		const { triggerCommand, categoryName } = item;
+		if (typeof triggerCommand !== "string") continue;
+		triggers.push({
+			triggerCommand,
+			categoryName: typeof categoryName === "string" ? categoryName : null,
+		});
+	}
+	return triggers;
 }
 
 async function fetchWithTimeout(
