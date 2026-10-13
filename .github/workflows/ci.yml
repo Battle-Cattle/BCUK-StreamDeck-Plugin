@@ -13,6 +13,8 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
       - uses: actions/setup-node@v4
         with:
           node-version: 20.x
@@ -38,6 +40,8 @@ jobs:
       cancel-in-progress: false
     steps:
       - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
       - uses: actions/setup-node@v4
         with:
           node-version: 20.x
@@ -51,10 +55,11 @@ jobs:
         id: existing
         env:
           GH_TOKEN: ${{ github.token }}
+          TAG: ${{ steps.version.outputs.tag }}
         run: |
-          if gh release view "${{ steps.version.outputs.tag }}" > /dev/null 2>&1; then
+          if gh release view "$TAG" --repo "$GITHUB_REPOSITORY" > /dev/null 2>&1; then
             echo "released=true" >> "$GITHUB_OUTPUT"
-            echo "${{ steps.version.outputs.tag }} is already released; nothing to do."
+            echo "$TAG is already released; nothing to do."
           else
             echo "released=false" >> "$GITHUB_OUTPUT"
           fi
@@ -69,10 +74,12 @@ jobs:
         if: steps.existing.outputs.released == 'false'
         env:
           GH_TOKEN: ${{ github.token }}
+          TAG: ${{ steps.version.outputs.tag }}
         run: |
-          gh release create "${{ steps.version.outputs.tag }}" \
+          gh release create "$TAG" \
             dist/com.expiredminotaur.bcuk.streamDeckPlugin \
+            --repo "$GITHUB_REPOSITORY" \
             --target "$GITHUB_SHA" \
-            --title "BCUK Bot Stream Deck plugin ${{ steps.version.outputs.tag }}" \
+            --title "BCUK Bot Stream Deck plugin $TAG" \
             --generate-notes \
             --latest
