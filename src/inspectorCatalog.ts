@@ -28,6 +28,8 @@ export class InspectorCatalog<T extends JsonValue> {
 	// The connection `items` were fetched with, or null for items seeded from legacy button
 	// settings (which predate any connection change, so they're accepted as-is).
 	private loadedFor: string | null = null;
+	// Bumped per fetch, so only the newest of overlapping fetches is applied.
+	private latestRequest = 0;
 
 	/** @param options How the list is fetched and delivered. */
 	constructor(private readonly options: InspectorCatalogOptions<T>) {}
@@ -66,8 +68,11 @@ export class InspectorCatalog<T extends JsonValue> {
 	 */
 	async refresh(conn: Connection): Promise<void> {
 		const { label, path, parse, loadedEvent, errorEvent, listKey } = this.options;
+		const request = ++this.latestRequest;
 		const startedUnder = connectionId(getConnection());
 		const result = await apiRequest<JsonObject>(conn, path);
+		// A newer fetch has started since (e.g. Refresh while the auto-fetch was pending).
+		if (request !== this.latestRequest) return;
 		// The saved connection changed while this was in flight, and this response isn't for the
 		// new one: drop it rather than show another bot's list. (A Refresh carries the inspector's
 		// new values, which can arrive before their settings echo, so those are still accepted.)

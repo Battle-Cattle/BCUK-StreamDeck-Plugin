@@ -115,6 +115,20 @@ describe("InspectorCatalog", () => {
 		expect(send).toHaveBeenLastCalledWith({ event: "thingsLoaded", things: ["new"] });
 	});
 
+	it("applies only the newest of overlapping fetches", async () => {
+		let finishOlder!: (value: unknown) => void;
+		vi.mocked(apiRequest)
+			.mockImplementationOnce(() => new Promise((resolve) => { finishOlder = resolve; }) as never)
+			.mockResolvedValueOnce({ ok: true, data: { things: ["newer"] } });
+		const catalog = makeCatalog();
+		const older = catalog.refresh(conn);
+		await catalog.refresh(conn);
+		finishOlder({ ok: true, data: { things: ["older"] } });
+		await older;
+		expect(send).toHaveBeenCalledTimes(1);
+		expect(send).toHaveBeenLastCalledWith({ event: "thingsLoaded", things: ["newer"] });
+	});
+
 	it("drops a stale list without fetching when the new connection has no key", async () => {
 		vi.mocked(apiRequest).mockResolvedValueOnce({ ok: true, data: { things: ["old"] } });
 		const catalog = makeCatalog();
