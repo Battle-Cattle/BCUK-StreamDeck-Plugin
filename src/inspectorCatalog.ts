@@ -66,7 +66,16 @@ export class InspectorCatalog<T extends JsonValue> {
 	 */
 	async refresh(conn: Connection): Promise<void> {
 		const { label, path, parse, loadedEvent, errorEvent, listKey } = this.options;
+		const startedUnder = connectionId(getConnection());
 		const result = await apiRequest<JsonObject>(conn, path);
+		// The saved connection changed while this was in flight, and this response isn't for the
+		// new one: drop it rather than show another bot's list. (A Refresh carries the inspector's
+		// new values, which can arrive before their settings echo, so those are still accepted.)
+		const current = connectionId(getConnection());
+		if (current !== startedUnder && current !== connectionId(conn)) {
+			streamDeck.logger.info(`Discarding ${label} fetched for a previous connection`);
+			return;
+		}
 		if (!result.ok) {
 			logFailure(`Fetch ${label}`, result);
 			await this.send({ event: errorEvent, error: result.error });

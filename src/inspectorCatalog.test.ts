@@ -89,6 +89,32 @@ describe("InspectorCatalog", () => {
 		expect(send).toHaveBeenLastCalledWith({ event: "thingsLoaded", things: ["new"] });
 	});
 
+	it("discards a response when the connection changes while the fetch is in flight", async () => {
+		const newConn = { serverUrl: "https://other.example", apiKey: "k2" };
+		vi.mocked(apiRequest).mockImplementationOnce(async () => {
+			vi.mocked(getConnection).mockReturnValue(newConn);
+			return { ok: true, data: { things: ["old"] } };
+		});
+		const catalog = makeCatalog();
+		await catalog.refresh(conn);
+		expect(send).not.toHaveBeenCalled();
+
+		vi.mocked(apiRequest).mockResolvedValueOnce({ ok: true, data: { things: ["new"] } });
+		await catalog.show();
+		expect(apiRequest).toHaveBeenLastCalledWith(newConn, "/things");
+		expect(send).toHaveBeenLastCalledWith({ event: "thingsLoaded", things: ["new"] });
+	});
+
+	it("keeps a Refresh response for the new connection even if its settings echo lands mid-fetch", async () => {
+		const newConn = { serverUrl: "https://other.example", apiKey: "k2" };
+		vi.mocked(apiRequest).mockImplementationOnce(async () => {
+			vi.mocked(getConnection).mockReturnValue(newConn);
+			return { ok: true, data: { things: ["new"] } };
+		});
+		await makeCatalog().refresh(newConn);
+		expect(send).toHaveBeenLastCalledWith({ event: "thingsLoaded", things: ["new"] });
+	});
+
 	it("drops a stale list without fetching when the new connection has no key", async () => {
 		vi.mocked(apiRequest).mockResolvedValueOnce({ ok: true, data: { things: ["old"] } });
 		const catalog = makeCatalog();
