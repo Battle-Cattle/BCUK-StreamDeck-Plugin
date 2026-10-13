@@ -20,6 +20,7 @@ function makeCatalog() {
 		label: "things",
 		path: "/things",
 		parse: (body) => (Array.isArray(body.things) ? body.things.filter((t): t is string => typeof t === "string") : []),
+		key: (thing) => thing,
 		loadedEvent: "thingsLoaded",
 		errorEvent: "thingsError",
 		listKey: "things",
@@ -66,12 +67,37 @@ describe("InspectorCatalog", () => {
 		expect(send).not.toHaveBeenCalled();
 	});
 
-	it("uses seeded items only until something is loaded", async () => {
+	it("merges seeded items from several legacy buttons without duplicates", async () => {
 		const catalog = makeCatalog();
-		catalog.seed(["legacy"]);
-		catalog.seed(["ignored"]);
+		catalog.seed(["a", "b"]);
+		catalog.seed(["b", "c"]);
 		await catalog.show();
 		expect(apiRequest).not.toHaveBeenCalled();
-		expect(send).toHaveBeenLastCalledWith({ event: "thingsLoaded", things: ["legacy"] });
+		expect(send).toHaveBeenLastCalledWith({ event: "thingsLoaded", things: ["a", "b", "c"] });
+	});
+
+	it("refetches when the server URL or API key has changed since the list was loaded", async () => {
+		vi.mocked(apiRequest).mockResolvedValueOnce({ ok: true, data: { things: ["old"] } });
+		const catalog = makeCatalog();
+		await catalog.refresh(conn);
+
+		const newConn = { serverUrl: "https://other.example", apiKey: "k2" };
+		vi.mocked(getConnection).mockReturnValue(newConn);
+		vi.mocked(apiRequest).mockResolvedValueOnce({ ok: true, data: { things: ["new"] } });
+		await catalog.show();
+		expect(apiRequest).toHaveBeenLastCalledWith(newConn, "/things");
+		expect(send).toHaveBeenLastCalledWith({ event: "thingsLoaded", things: ["new"] });
+	});
+
+	it("drops a stale list without fetching when the new connection has no key", async () => {
+		vi.mocked(apiRequest).mockResolvedValueOnce({ ok: true, data: { things: ["old"] } });
+		const catalog = makeCatalog();
+		await catalog.refresh(conn);
+		send.mockClear();
+
+		vi.mocked(getConnection).mockReturnValue({ serverUrl: "https://other.example", apiKey: "" });
+		await catalog.show();
+		expect(apiRequest).toHaveBeenCalledTimes(1);
+		expect(send).not.toHaveBeenCalled();
 	});
 });

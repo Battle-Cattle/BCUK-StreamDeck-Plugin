@@ -22,8 +22,7 @@
 		}
 	],
 	"Nodejs": {
-		"Version": "20",
-		"Debug": "disabled"
+		"Version": "20"
 	},
 	"UUID": "com.expiredminotaur.bcuk",
 	"Actions": [

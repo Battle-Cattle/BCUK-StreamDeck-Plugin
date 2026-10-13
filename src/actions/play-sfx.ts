@@ -32,11 +32,13 @@ export class PlaySfxAction extends SingletonAction<PlaySfxSettings> {
 		label: "commands",
 		path: "/sfx",
 		parse: (body) => toSfxTriggers(body.triggers),
+		key: (trigger) => trigger.triggerCommand,
 		loadedEvent: "commandsLoaded",
 		errorEvent: "commandsError",
 		listKey: "triggers",
 	});
 
+	/** Plays the button's configured command on the bot, showing OK or an alert on the key. */
 	override async onKeyDown(ev: KeyDownEvent<PlaySfxSettings>): Promise<void> {
 		const { command } = ev.payload.settings;
 		if (!command) {
@@ -54,6 +56,10 @@ export class PlaySfxAction extends SingletonAction<PlaySfxSettings> {
 		await ev.action.showAlert();
 	}
 
+	/**
+	 * Migrates a button's settings to hold only its command, folding any legacy per-button
+	 * trigger list into the shared catalog first.
+	 */
 	override async onWillAppear(ev: WillAppearEvent<PlaySfxSettings>): Promise<void> {
 		const settings = ev.payload.settings as LegacyPlaySfxSettings;
 		this.catalog.seed(toSfxTriggers(settings.cachedTriggers));
@@ -64,10 +70,12 @@ export class PlaySfxAction extends SingletonAction<PlaySfxSettings> {
 		}
 	}
 
+	/** Sends the catalog to a newly opened property inspector, fetching it first if needed. */
 	override async onPropertyInspectorDidAppear(): Promise<void> {
 		await this.catalog.show();
 	}
 
+	/** Handles the property inspector's "Refresh Commands" request. */
 	override async onSendToPlugin(ev: SendToPluginEvent<PiToPluginMsg, PlaySfxSettings>): Promise<void> {
 		if (ev.payload.event === "refreshCommands") {
 			await this.catalog.refresh({ serverUrl: ev.payload.serverUrl, apiKey: ev.payload.apiKey });
