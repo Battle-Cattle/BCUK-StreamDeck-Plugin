@@ -18,7 +18,7 @@ The plugin talks to the bot's `/api/streamdeck` routes; see `src/web/routes/stre
 
 - Stream Deck software 6.9+
 - Windows 10+ or macOS 12+
-- Node.js 20 (for building)
+- Node.js 20.9 or later (for building; `sharp`, used by `npm run placeholders`, needs at least 20.9)
 
 ## Development
 
