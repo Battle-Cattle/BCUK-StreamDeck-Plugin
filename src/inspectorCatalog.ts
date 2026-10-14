@@ -15,8 +15,11 @@ export interface InspectorCatalogOptions<T extends JsonValue> {
 	label: string;
 	/** API path to fetch, under `/api/streamdeck`. */
 	path: string;
-	/** Extracts the list from the response body, dropping malformed entries. */
-	parse: (body: JsonObject) => T[];
+	/**
+	 * Extracts the list from the response body, dropping malformed entries; returns null when
+	 * the body has no list at all, which is reported as an error instead of an empty list.
+	 */
+	parse: (body: JsonObject) => T[] | null;
 	/** Identifies an entry, for merging lists seeded from several legacy buttons. */
 	key: (item: T) => string;
 	/** Message event names the property inspector listens for, and the payload key for the list. */
@@ -56,6 +59,9 @@ export class InspectorCatalog<T extends JsonValue> {
 	 * `key`). Each legacy button carried its own snapshot, so later buttons can add entries.
 	 */
 	seed(items: T[]): void {
+		// A list fetched from the bot is authoritative; legacy lists on buttons that appear later
+		// (e.g. on another page) mustn't add stale entries to it.
+		if (this.loadedFor !== null) return;
 		const { key } = this.options;
 		const seen = new Set(this.items.map(key));
 		this.items = [...this.items, ...items.filter((item) => !seen.has(key(item)))];
@@ -107,7 +113,13 @@ export class InspectorCatalog<T extends JsonValue> {
 			await this.send({ event: errorEvent, error: result.error });
 			return;
 		}
-		this.items = parse(result.data);
+		const items = parse(result.data);
+		if (items === null) {
+			logFailure(`Fetch ${label}`, { status: null, error: `Server response had no ${label} list` });
+			await this.send({ event: errorEvent, error: `Server response had no ${label} list — check the Server URL` });
+			return;
+		}
+		this.items = items;
 		this.loadedFor = connectionId(conn);
 		streamDeck.logger.info(`Fetched ${this.items.length} ${label}`);
 		await this.send({ event: loadedEvent, [listKey]: this.items });
