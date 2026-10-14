@@ -26,6 +26,8 @@ export type ApiResult<T> =
 const REQUEST_TIMEOUT_MS = 20_000;
 
 let globalSettings: GlobalSettings = { serverUrl: "", apiKey: "" };
+let globalSettingsLoaded = false;
+const globalSettingsListeners = new Set<() => void>();
 
 /**
  * Starts tracking the global settings. Call once, before `streamDeck.connect()`. Stream Deck
@@ -34,8 +36,23 @@ let globalSettings: GlobalSettings = { serverUrl: "", apiKey: "" };
 export function initGlobalSettings(): void {
 	streamDeck.settings.onDidReceiveGlobalSettings<JsonObject>((ev) => {
 		globalSettings = migrateGlobalSettings(ev.settings);
+		globalSettingsLoaded = true;
+		for (const listener of globalSettingsListeners) listener();
 	});
 	void streamDeck.settings.getGlobalSettings();
+}
+
+/** Whether the global settings have been received from Stream Deck yet. */
+export function hasGlobalSettings(): boolean {
+	return globalSettingsLoaded;
+}
+
+/**
+ * Registers a callback run after each global-settings delivery (startup and every save).
+ * @param listener Called with no arguments; read the new values with {@link getConnection}.
+ */
+export function onGlobalSettingsChanged(listener: () => void): void {
+	globalSettingsListeners.add(listener);
 }
 
 /** The current connection details from the global settings. */

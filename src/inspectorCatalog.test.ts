@@ -6,10 +6,12 @@ vi.mock("./api", () => ({
 	apiRequest: vi.fn(),
 	getConnection: vi.fn(),
 	logFailure: vi.fn(),
+	hasGlobalSettings: vi.fn(() => true),
+	onGlobalSettingsChanged: vi.fn(),
 }));
 
 import streamDeck from "@elgato/streamdeck";
-import { apiRequest, getConnection, logFailure } from "./api";
+import { apiRequest, getConnection, hasGlobalSettings, logFailure, onGlobalSettingsChanged } from "./api";
 import { InspectorCatalog } from "./inspectorCatalog";
 
 const send = vi.mocked(streamDeck.ui.sendToPropertyInspector);
@@ -127,6 +129,32 @@ describe("InspectorCatalog", () => {
 		await older;
 		expect(send).toHaveBeenCalledTimes(1);
 		expect(send).toHaveBeenLastCalledWith({ event: "thingsLoaded", things: ["newer"] });
+	});
+
+	it("fetches once the global settings arrive if an inspector opened before them", async () => {
+		vi.mocked(hasGlobalSettings).mockReturnValue(false);
+		vi.mocked(getConnection).mockReturnValue({ serverUrl: "", apiKey: "" });
+		const catalog = makeCatalog();
+		const settingsArrived = vi.mocked(onGlobalSettingsChanged).mock.calls.at(-1)![0];
+		await catalog.show();
+		expect(apiRequest).not.toHaveBeenCalled();
+
+		vi.mocked(getConnection).mockReturnValue(conn);
+		vi.mocked(apiRequest).mockResolvedValueOnce({ ok: true, data: { things: ["x"] } });
+		settingsArrived();
+		await vi.waitFor(() => expect(send).toHaveBeenCalledWith({ event: "thingsLoaded", things: ["x"] }));
+		expect(apiRequest).toHaveBeenCalledTimes(1);
+
+		// Later settings saves don't trigger further fetches.
+		settingsArrived();
+		expect(apiRequest).toHaveBeenCalledTimes(1);
+		vi.mocked(hasGlobalSettings).mockReturnValue(true);
+	});
+
+	it("doesn't fetch on settings delivery when no inspector was waiting", async () => {
+		makeCatalog();
+		vi.mocked(onGlobalSettingsChanged).mock.calls.at(-1)![0]();
+		expect(apiRequest).not.toHaveBeenCalled();
 	});
 
 	it("drops a stale list without fetching when the new connection has no key", async () => {

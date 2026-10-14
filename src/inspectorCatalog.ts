@@ -1,6 +1,13 @@
 import type { JsonObject, JsonValue } from "@elgato/utils";
 import streamDeck from "@elgato/streamdeck";
-import { apiRequest, type Connection, getConnection, logFailure } from "./api";
+import {
+	apiRequest,
+	type Connection,
+	getConnection,
+	hasGlobalSettings,
+	logFailure,
+	onGlobalSettingsChanged,
+} from "./api";
 
 /** How one action's dropdown list is fetched from the bot and sent to its property inspector. */
 export interface InspectorCatalogOptions<T extends JsonValue> {
@@ -30,9 +37,19 @@ export class InspectorCatalog<T extends JsonValue> {
 	private loadedFor: string | null = null;
 	// Bumped per fetch, so only the newest of overlapping fetches is applied.
 	private latestRequest = 0;
+	// Set when an inspector opened before the global settings had arrived (just after
+	// startup), so there was no API key to fetch with; the first delivery then fetches.
+	private awaitingSettings = false;
 
 	/** @param options How the list is fetched and delivered. */
-	constructor(private readonly options: InspectorCatalogOptions<T>) {}
+	constructor(private readonly options: InspectorCatalogOptions<T>) {
+		onGlobalSettingsChanged(() => {
+			const conn = getConnection();
+			if (!this.awaitingSettings || !conn.apiKey || this.items.length > 0) return;
+			this.awaitingSettings = false;
+			void this.refresh(conn);
+		});
+	}
 
 	/**
 	 * Adds entries from legacy per-button settings that aren't already in the list (matched by
@@ -59,7 +76,11 @@ export class InspectorCatalog<T extends JsonValue> {
 			await this.send({ event: this.options.loadedEvent, [this.options.listKey]: this.items });
 			return;
 		}
-		if (conn.apiKey) await this.refresh(conn);
+		if (conn.apiKey) {
+			await this.refresh(conn);
+		} else if (!hasGlobalSettings()) {
+			this.awaitingSettings = true;
+		}
 	}
 
 	/**
