@@ -159,10 +159,29 @@ export async function apiRequest<T>(
 		return toResult<T>(response.status, response.ok, await response.text());
 	} catch (err) {
 		const aborted = err instanceof Error && err.name === "AbortError";
-		return { ok: false, status: null, error: aborted ? "Request timed out" : `Network error — ${String(err)}` };
+		return { ok: false, status: null, error: aborted ? "Request timed out" : `Network error — ${describeNetworkError(err)}` };
 	} finally {
 		clearTimeout(timer);
 	}
+}
+
+/**
+ * Describes a failed fetch, including the underlying reason. Node's fetch throws a bare
+ * "fetch failed" and keeps the useful part (refused connection, DNS failure, TLS error, closed
+ * socket) in `cause`.
+ * @param err What fetch threw.
+ * @returns The error, followed by its cause's code and message in brackets when it has one.
+ */
+export function describeNetworkError(err: unknown): string {
+	const message = String(err);
+	const cause = err instanceof Error ? err.cause : undefined;
+	if (typeof cause !== "object" || cause === null) return message;
+	const { code, message: causeMessage } = cause as { code?: unknown; message?: unknown };
+	const text = typeof causeMessage === "string" ? causeMessage : "";
+	// Node's messages usually start with the code already ("connect ECONNREFUSED ..."), so only
+	// prefix it when they don't.
+	const detail = typeof code === "string" && !text.includes(code) ? [code, text].filter(Boolean).join(": ") : text;
+	return detail ? `${message} (${detail})` : message;
 }
 
 /**
