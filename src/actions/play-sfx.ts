@@ -74,6 +74,9 @@ export class PlaySfxAction extends SingletonAction<PlaySfxSettings> {
 	// True once the catalog came from the bot rather than from legacy button settings; from then
 	// on it's authoritative, and legacy lists on buttons that appear later aren't merged into it.
 	private catalogFetched = false;
+	// The connection the fetched catalog came from, so the settings echo of a Refresh that
+	// already loaded the new connection's list doesn't throw that list away.
+	private catalogConnection: GlobalSettings | null = null;
 	// Shared by every Play SFX button: the catalog is global to the bot, not per button.
 	private triggerCatalog: SfxTrigger[] = [];
 
@@ -83,11 +86,15 @@ export class PlaySfxAction extends SingletonAction<PlaySfxSettings> {
 		streamDeck.settings.onDidReceiveGlobalSettings<GlobalSettings>((ev) => {
 			const next = { ...DEFAULT_GLOBAL, ...ev.settings };
 			// A list fetched from a different bot or with a different key is no longer valid. The
-			// first delivery only replaces the defaults, so it keeps lists migrated from buttons.
+			// first delivery only replaces the defaults, so it keeps lists migrated from buttons. A
+			// list already fetched for the new connection (Refresh beat its own echo) is kept.
 			if (this.globalSettingsLoaded && !sameConnection(this.cachedGlobal, next)) {
-				this.triggerCatalog = [];
-				this.catalogFetched = false;
 				this.connectionGeneration++;
+				if (!this.catalogConnection || !sameConnection(this.catalogConnection, next)) {
+					this.triggerCatalog = [];
+					this.catalogFetched = false;
+					this.catalogConnection = null;
+				}
 			}
 			this.cachedGlobal = next;
 			this.globalSettingsLoaded = true;
@@ -266,6 +273,7 @@ export class PlaySfxAction extends SingletonAction<PlaySfxSettings> {
 
 			this.triggerCatalog = triggers;
 			this.catalogFetched = true;
+			this.catalogConnection = { host, port, apiKey };
 			await streamDeck.ui.sendToPropertyInspector({
 				event: "commandsLoaded",
 				triggers,
