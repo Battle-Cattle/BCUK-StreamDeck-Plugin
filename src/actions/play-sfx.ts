@@ -200,6 +200,18 @@ export class PlaySfxAction extends SingletonAction<PlaySfxSettings> {
 	): Promise<void> {
 		const generation = this.connectionGeneration;
 		const request = ++this.catalogRequest;
+		// Superseded by a newer fetch (e.g. Refresh while the auto-fetch was pending), or the
+		// connection changed since and this fetch isn't for the new one (a Refresh carries the
+		// inspector's new values, which may beat their settings echo). Its result — success or
+		// error — must not reach the inspector.
+		const isStale = (): boolean =>
+			request !== this.catalogRequest ||
+			(generation !== this.connectionGeneration && !sameConnection(this.cachedGlobal, { host, port, apiKey }));
+		/** Sends an error to the inspector unless this fetch has gone stale. */
+		const sendError = async (error: string): Promise<void> => {
+			if (isStale()) return;
+			await streamDeck.ui.sendToPropertyInspector({ event: "commandsError", error } satisfies PluginToPiMsg);
+		};
 		const url = `http://${host}:${port}/api/streamdeck/sfx`;
 		streamDeck.logger.info(`Fetching triggers from ${url}`);
 
@@ -213,19 +225,13 @@ export class PlaySfxAction extends SingletonAction<PlaySfxSettings> {
 			streamDeck.logger.info(`Trigger fetch status: ${response.status}`);
 
 			if (!response.ok) {
-				await streamDeck.ui.sendToPropertyInspector({
-					event: "commandsError",
-					error: `Server returned ${response.status}`,
-				} satisfies PluginToPiMsg);
+				await sendError(`Server returned ${response.status}`);
 				return;
 			}
 
 			const contentType = response.headers.get("content-type") ?? "";
 			if (!contentType.includes("application/json")) {
-				await streamDeck.ui.sendToPropertyInspector({
-					event: "commandsError",
-					error: `Server returned non-JSON response — check host/port settings`,
-				} satisfies PluginToPiMsg);
+				await sendError("Server returned non-JSON response — check host/port settings");
 				return;
 			}
 
@@ -233,13 +239,8 @@ export class PlaySfxAction extends SingletonAction<PlaySfxSettings> {
 			const triggers = toCatalog(data.triggers);
 
 			streamDeck.logger.info(`Triggers received: ${triggers.length}`);
-			// A newer fetch has started since (e.g. Refresh while the auto-fetch was pending).
-			if (request !== this.catalogRequest) return;
-			// Only drop it if the connection changed since and this response isn't for the new
-			// one (a Refresh carries the inspector's new values, which may beat their settings echo).
-			const current = sameConnection(this.cachedGlobal, { host, port, apiKey });
-			if (generation !== this.connectionGeneration && !current) {
-				streamDeck.logger.info("Discarding triggers fetched for a previous connection.");
+			if (isStale()) {
+				streamDeck.logger.info("Discarding triggers from a superseded fetch.");
 				return;
 			}
 
@@ -250,10 +251,7 @@ export class PlaySfxAction extends SingletonAction<PlaySfxSettings> {
 			} satisfies PluginToPiMsg);
 		} catch (err) {
 			streamDeck.logger.error(`Trigger fetch error: ${err}`);
-			await streamDeck.ui.sendToPropertyInspector({
-				event: "commandsError",
-				error: String(err),
-			} satisfies PluginToPiMsg);
+			await sendError(String(err));
 		}
 	}
 }
