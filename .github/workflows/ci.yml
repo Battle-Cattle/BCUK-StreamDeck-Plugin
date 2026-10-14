@@ -57,12 +57,27 @@ jobs:
           GH_TOKEN: ${{ github.token }}
           TAG: ${{ steps.version.outputs.tag }}
         run: |
-          if gh release view "$TAG" --repo "$GITHUB_REPOSITORY" > /dev/null 2>&1; then
+          if out=$(gh release view "$TAG" --repo "$GITHUB_REPOSITORY" 2>&1); then
             echo "released=true" >> "$GITHUB_OUTPUT"
             echo "$TAG is already released; nothing to do."
-          else
-            echo "released=false" >> "$GITHUB_OUTPUT"
+            exit 0
           fi
+          # Only "no such release" means publish; any other lookup failure (API, auth) stops here.
+          if ! grep -qi 'release not found' <<<"$out"; then
+            echo "::error::Could not check for release $TAG: $out"
+            exit 1
+          fi
+          # gh release create reuses an existing tag instead of tagging --target, so a tag pushed
+          # by hand must already point at this commit or the release would ship the wrong code.
+          refs=$(gh api "repos/$GITHUB_REPOSITORY/git/matching-refs/tags/$TAG" --jq '.[].ref')
+          if grep -Fxq "refs/tags/$TAG" <<<"$refs"; then
+            tag_sha=$(gh api "repos/$GITHUB_REPOSITORY/commits/refs/tags/$TAG" --jq .sha)
+            if [ "$tag_sha" != "$GITHUB_SHA" ]; then
+              echo "::error::Tag $TAG already exists at $tag_sha, not $GITHUB_SHA. Delete the tag or bump Version in manifest.json."
+              exit 1
+            fi
+          fi
+          echo "released=false" >> "$GITHUB_OUTPUT"
       - if: steps.existing.outputs.released == 'false'
         run: npm ci
       - if: steps.existing.outputs.released == 'false'
