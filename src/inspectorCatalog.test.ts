@@ -1,0 +1,191 @@
+import { beforeEach, describe, expect, it, vi } from "vitest";
+import { streamDeckModuleMock } from "./test-utils/streamdeckMock";
+
+vi.mock("@elgato/streamdeck", () => streamDeckModuleMock());
+vi.mock("./api", () => ({
+	apiRequest: vi.fn(),
+	getConnection: vi.fn(),
+	logFailure: vi.fn(),
+	hasGlobalSettings: vi.fn(() => true),
+	onGlobalSettingsChanged: vi.fn(),
+}));
+
+import streamDeck from "@elgato/streamdeck";
+import { apiRequest, getConnection, hasGlobalSettings, logFailure, onGlobalSettingsChanged } from "./api";
+import { InspectorCatalog } from "./inspectorCatalog";
+
+const send = vi.mocked(streamDeck.ui.sendToPropertyInspector);
+const conn = { serverUrl: "https://bot.example", apiKey: "k" };
+
+function makeCatalog() {
+	return new InspectorCatalog<string>({
+		label: "things",
+		path: "/things",
+		parse: (body) => (Array.isArray(body.things) ? body.things.filter((t): t is string => typeof t === "string") : null),
+		key: (thing) => thing,
+		loadedEvent: "thingsLoaded",
+		errorEvent: "thingsError",
+		listKey: "things",
+	});
+}
+
+beforeEach(() => {
+	vi.clearAllMocks();
+	vi.mocked(getConnection).mockReturnValue(conn);
+});
+
+describe("InspectorCatalog", () => {
+	it("fetches, keeps and sends the parsed list", async () => {
+		vi.mocked(apiRequest).mockResolvedValue({ ok: true, data: { things: ["a", 1, "b"] } });
+		const catalog = makeCatalog();
+		await catalog.refresh(conn);
+		expect(apiRequest).toHaveBeenCalledWith(conn, "/things");
+		expect(send).toHaveBeenLastCalledWith({ event: "thingsLoaded", things: ["a", "b"] });
+
+		// A later inspector open re-sends the kept list without fetching again.
+		await catalog.show();
+		expect(apiRequest).toHaveBeenCalledTimes(1);
+		expect(send).toHaveBeenLastCalledWith({ event: "thingsLoaded", things: ["a", "b"] });
+	});
+
+	it("sends the bot's error to the inspector and logs it", async () => {
+		const failure = { ok: false as const, status: 403, error: "Key not approved for any guild" };
+		vi.mocked(apiRequest).mockResolvedValue(failure);
+		await makeCatalog().refresh(conn);
+		expect(logFailure).toHaveBeenCalledWith("Fetch things", failure);
+		expect(send).toHaveBeenCalledWith({ event: "thingsError", error: "Key not approved for any guild" });
+	});
+
+	it("fetches on first show when a key is configured", async () => {
+		vi.mocked(apiRequest).mockResolvedValue({ ok: true, data: { things: ["x"] } });
+		await makeCatalog().show();
+		expect(apiRequest).toHaveBeenCalledWith(conn, "/things");
+	});
+
+	it("does nothing on first show without an API key", async () => {
+		vi.mocked(getConnection).mockReturnValue({ serverUrl: "https://bot.example", apiKey: "" });
+		await makeCatalog().show();
+		expect(apiRequest).not.toHaveBeenCalled();
+		expect(send).not.toHaveBeenCalled();
+	});
+
+	it("merges seeded items from several legacy buttons without duplicates", async () => {
+		const catalog = makeCatalog();
+		catalog.seed(["a", "b"]);
+		catalog.seed(["b", "c"]);
+		await catalog.show();
+		expect(apiRequest).not.toHaveBeenCalled();
+		expect(send).toHaveBeenLastCalledWith({ event: "thingsLoaded", things: ["a", "b", "c"] });
+	});
+
+	it("refetches when the server URL or API key has changed since the list was loaded", async () => {
+		vi.mocked(apiRequest).mockResolvedValueOnce({ ok: true, data: { things: ["old"] } });
+		const catalog = makeCatalog();
+		await catalog.refresh(conn);
+
+		const newConn = { serverUrl: "https://other.example", apiKey: "k2" };
+		vi.mocked(getConnection).mockReturnValue(newConn);
+		vi.mocked(apiRequest).mockResolvedValueOnce({ ok: true, data: { things: ["new"] } });
+		await catalog.show();
+		expect(apiRequest).toHaveBeenLastCalledWith(newConn, "/things");
+		expect(send).toHaveBeenLastCalledWith({ event: "thingsLoaded", things: ["new"] });
+	});
+
+	it("discards a response when the connection changes while the fetch is in flight", async () => {
+		const newConn = { serverUrl: "https://other.example", apiKey: "k2" };
+		vi.mocked(apiRequest).mockImplementationOnce(async () => {
+			vi.mocked(getConnection).mockReturnValue(newConn);
+			return { ok: true, data: { things: ["old"] } };
+		});
+		const catalog = makeCatalog();
+		await catalog.refresh(conn);
+		expect(send).not.toHaveBeenCalled();
+
+		vi.mocked(apiRequest).mockResolvedValueOnce({ ok: true, data: { things: ["new"] } });
+		await catalog.show();
+		expect(apiRequest).toHaveBeenLastCalledWith(newConn, "/things");
+		expect(send).toHaveBeenLastCalledWith({ event: "thingsLoaded", things: ["new"] });
+	});
+
+	it("keeps a Refresh response for the new connection even if its settings echo lands mid-fetch", async () => {
+		const newConn = { serverUrl: "https://other.example", apiKey: "k2" };
+		vi.mocked(apiRequest).mockImplementationOnce(async () => {
+			vi.mocked(getConnection).mockReturnValue(newConn);
+			return { ok: true, data: { things: ["new"] } };
+		});
+		await makeCatalog().refresh(newConn);
+		expect(send).toHaveBeenLastCalledWith({ event: "thingsLoaded", things: ["new"] });
+	});
+
+	it("applies only the newest of overlapping fetches", async () => {
+		let finishOlder!: (value: unknown) => void;
+		vi.mocked(apiRequest)
+			.mockImplementationOnce(() => new Promise((resolve) => { finishOlder = resolve; }) as never)
+			.mockResolvedValueOnce({ ok: true, data: { things: ["newer"] } });
+		const catalog = makeCatalog();
+		const older = catalog.refresh(conn);
+		await catalog.refresh(conn);
+		finishOlder({ ok: true, data: { things: ["older"] } });
+		await older;
+		expect(send).toHaveBeenCalledTimes(1);
+		expect(send).toHaveBeenLastCalledWith({ event: "thingsLoaded", things: ["newer"] });
+	});
+
+	it("fetches once the global settings arrive if an inspector opened before them", async () => {
+		vi.mocked(hasGlobalSettings).mockReturnValue(false);
+		vi.mocked(getConnection).mockReturnValue({ serverUrl: "", apiKey: "" });
+		const catalog = makeCatalog();
+		const settingsArrived = vi.mocked(onGlobalSettingsChanged).mock.calls.at(-1)![0];
+		await catalog.show();
+		expect(apiRequest).not.toHaveBeenCalled();
+
+		vi.mocked(getConnection).mockReturnValue(conn);
+		vi.mocked(apiRequest).mockResolvedValueOnce({ ok: true, data: { things: ["x"] } });
+		settingsArrived();
+		await vi.waitFor(() => expect(send).toHaveBeenCalledWith({ event: "thingsLoaded", things: ["x"] }));
+		expect(apiRequest).toHaveBeenCalledTimes(1);
+
+		// Later settings saves don't trigger further fetches.
+		settingsArrived();
+		expect(apiRequest).toHaveBeenCalledTimes(1);
+		vi.mocked(hasGlobalSettings).mockReturnValue(true);
+	});
+
+	it("doesn't fetch on settings delivery when no inspector was waiting", async () => {
+		makeCatalog();
+		vi.mocked(onGlobalSettingsChanged).mock.calls.at(-1)![0]();
+		expect(apiRequest).not.toHaveBeenCalled();
+	});
+
+	it("reports a response with no list as an error and keeps the current list", async () => {
+		vi.mocked(apiRequest).mockResolvedValueOnce({ ok: true, data: { things: ["a"] } });
+		const catalog = makeCatalog();
+		await catalog.refresh(conn);
+		vi.mocked(apiRequest).mockResolvedValueOnce({ ok: true, data: {} });
+		await catalog.refresh(conn);
+		expect(send).toHaveBeenLastCalledWith({ event: "thingsError", error: "Server response had no things list — check the Server URL" });
+		await catalog.show();
+		expect(send).toHaveBeenLastCalledWith({ event: "thingsLoaded", things: ["a"] });
+	});
+
+	it("ignores legacy seeds once a list has been fetched", async () => {
+		vi.mocked(apiRequest).mockResolvedValueOnce({ ok: true, data: { things: ["fresh"] } });
+		const catalog = makeCatalog();
+		await catalog.refresh(conn);
+		catalog.seed(["stale"]);
+		await catalog.show();
+		expect(send).toHaveBeenLastCalledWith({ event: "thingsLoaded", things: ["fresh"] });
+	});
+
+	it("drops a stale list without fetching when the new connection has no key", async () => {
+		vi.mocked(apiRequest).mockResolvedValueOnce({ ok: true, data: { things: ["old"] } });
+		const catalog = makeCatalog();
+		await catalog.refresh(conn);
+		send.mockClear();
+
+		vi.mocked(getConnection).mockReturnValue({ serverUrl: "https://other.example", apiKey: "" });
+		await catalog.show();
+		expect(apiRequest).toHaveBeenCalledTimes(1);
+		expect(send).not.toHaveBeenCalled();
+	});
+});

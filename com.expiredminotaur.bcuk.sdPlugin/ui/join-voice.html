@@ -2,97 +2,16 @@
 <html lang="en">
 <head>
 	<meta charset="utf-8" />
-	<title>Join Voice Channel</title>
-	<style>
-		:root {
-			--bg: #2d2d2d;
-			--surface: #3d3d3d;
-			--border: #4a4a4a;
-			--text: #e0e0e0;
-			--label: #9e9e9e;
-			--accent: #e97e10;
-			--error: #e74c3c;
-			--success: #27ae60;
-		}
-
-		* { box-sizing: border-box; margin: 0; padding: 0; }
-
-		body {
-			font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
-			font-size: 13px;
-			color: var(--text);
-			background: var(--bg);
-			padding: 12px;
-		}
-
-		.row {
-			display: flex;
-			align-items: center;
-			margin-bottom: 8px;
-			gap: 8px;
-		}
-
-		.row label {
-			width: 72px;
-			min-width: 72px;
-			color: var(--label);
-			font-size: 11px;
-			text-transform: uppercase;
-			letter-spacing: 0.04em;
-		}
-
-		.row input,
-		.row select {
-			flex: 1;
-			min-width: 0;
-			background: var(--surface);
-			border: 1px solid var(--border);
-			color: var(--text);
-			border-radius: 3px;
-			padding: 4px 6px;
-			font-size: 13px;
-			outline: none;
-		}
-
-		.row input:focus,
-		.row select:focus {
-			border-color: var(--accent);
-		}
-
-		.row button {
-			flex: 1;
-			background: var(--surface);
-			border: 1px solid var(--border);
-			color: var(--text);
-			border-radius: 3px;
-			padding: 5px 8px;
-			cursor: pointer;
-			font-size: 13px;
-		}
-
-		.row button:hover { background: var(--accent); border-color: var(--accent); }
-		.row button:disabled { opacity: 0.5; cursor: default; }
-
-		#status {
-			margin-top: 4px;
-			font-size: 11px;
-			min-height: 14px;
-			color: var(--error);
-		}
-
-		#status.ok { color: var(--success); }
-	</style>
+	<title>Join Voice</title>
+	<link rel="stylesheet" href="pi-common.css" />
 </head>
 <body>
 
 <div class="row">
-	<label for="host">Host</label>
-	<input type="text" id="host" placeholder="localhost" />
+	<label for="serverUrl">Server URL</label>
+	<input type="text" id="serverUrl" placeholder="https://bot.example.com" autocomplete="off" spellcheck="false" />
 </div>
-<div class="row">
-	<label for="port">Port</label>
-	<input type="number" id="port" placeholder="3000" min="1" max="65535" />
-</div>
+<div id="urlWarning"></div>
 <div class="row">
 	<label for="apiKey">API Key</label>
 	<input type="password" id="apiKey" placeholder="64-char hex key" autocomplete="off" spellcheck="false" />
@@ -109,145 +28,63 @@
 </div>
 <div id="status"></div>
 
+<script src="pi-common.js"></script>
 <script>
-	let ws = null;
-	let context = null;
+	// Per-button settings: the chosen channel and its server. The channel list comes from the plugin.
+	let selected = { channelId: "", guildId: "" };
+	let channels = [];
 
-	// Per-button settings (channelId + cachedChannels)
-	let perButton = {};
-	// Global settings (host, port, apiKey)
-	let globals = { host: "localhost", port: 3000, apiKey: "" };
-
-	// ── WebSocket connection ──────────────────────────────────────────────
-
-	function connectElgatoStreamDeckSocket(port, uuid, registerEvent) {
-		ws = new WebSocket(`ws://127.0.0.1:${port}`);
-
-		ws.onopen = () => {
-			context = uuid;
-			ws.send(JSON.stringify({ event: registerEvent, uuid }));
-			ws.send(JSON.stringify({ event: "getSettings", context: uuid }));
-			ws.send(JSON.stringify({ event: "getGlobalSettings", context: uuid }));
-		};
-
-		ws.onmessage = (e) => {
-			const data = JSON.parse(e.data);
-
-			// Per-button settings
-			if (data.event === "didReceiveSettings") {
-				applyPerButtonSettings(data.payload.settings || {});
-			}
-
-			// Global settings
-			if (data.event === "didReceiveGlobalSettings") {
-				applyGlobalSettings(data.payload.settings || {});
-			}
-
-			// Messages pushed from the plugin (channelsLoaded / channelsError)
-			if (data.event === "sendToPropertyInspector") {
-				handlePluginMsg(data.payload);
-			}
-		};
+	function onButtonSettings(s) {
+		selected = { channelId: s.channelId || "", guildId: s.guildId || "" };
+		if (selected.channelId) document.getElementById("channel").value = selected.channelId;
 	}
 
-	// ── Settings ──────────────────────────────────────────────────────────
-
-	function applyGlobalSettings(s) {
-		globals = { host: "localhost", port: 3000, apiKey: "", ...s };
-		document.getElementById("host").value = globals.host;
-		document.getElementById("port").value = globals.port;
-		if (globals.apiKey) {
-			document.getElementById("apiKey").value = globals.apiKey;
-		}
-	}
-
-	function applyPerButtonSettings(s) {
-		perButton = s;
-		// Populate dropdown from cached channels; select saved channel.
-		if (s.cachedChannels && s.cachedChannels.length > 0) {
-			populateDropdown(s.cachedChannels, s.channelId || "");
-		}
-		// Belt-and-suspenders: apply the saved selection now.
-		if (s.channelId) document.getElementById("channel").value = s.channelId;
-	}
-
-	function handlePluginMsg(payload) {
+	function onPluginMessage(payload) {
 		if (payload.event === "channelsLoaded") {
-			populateDropdown(payload.channels || [], perButton.channelId || "");
+			channels = payload.channels || [];
+			populateDropdown();
 			setStatus("Channels loaded.", true);
-			document.getElementById("refreshBtn").disabled = false;
-			return;
-		}
-
-		if (payload.event === "channelsError") {
+		} else if (payload.event === "channelsError") {
 			setStatus(`Error: ${payload.error}`);
-			document.getElementById("refreshBtn").disabled = false;
 		}
+		document.getElementById("refreshBtn").disabled = false;
 	}
 
-	// ── Persist helpers ───────────────────────────────────────────────────
-
-	function saveGlobal() {
-		globals = {
-			host: document.getElementById("host").value.trim() || "localhost",
-			port: parseInt(document.getElementById("port").value, 10) || 3000,
-			apiKey: document.getElementById("apiKey").value.trim(),
-		};
-		ws.send(JSON.stringify({ event: "setGlobalSettings", context, payload: globals }));
-	}
-
-	// Per-button: saves channelId
-	function saveChannel() {
-		perButton = { ...perButton, channelId: document.getElementById("channel").value };
-		ws.send(JSON.stringify({ event: "setSettings", context, payload: perButton }));
-	}
-
-	function sendToPlugin(payload) {
-		ws.send(JSON.stringify({ event: "sendToPlugin", context, payload }));
-	}
-
-	// ── Dropdown ──────────────────────────────────────────────────────────
-
-	function populateDropdown(channels, selectedChannelId) {
+	// Lists channels grouped by server when the key spans more than one.
+	function populateDropdown() {
 		const sel = document.getElementById("channel");
 		sel.innerHTML = '<option value="">— select a channel —</option>';
-
-		for (const c of channels) {
-			const opt = document.createElement("option");
-			opt.value = c.id;
-			opt.textContent = c.name;
-			sel.appendChild(opt);
+		const guildIds = [...new Set(channels.map((c) => c.guildId))];
+		for (const guildId of guildIds) {
+			const inGuild = channels.filter((c) => c.guildId === guildId);
+			let parent = sel;
+			if (guildIds.length > 1) {
+				parent = document.createElement("optgroup");
+				parent.label = inGuild[0].guildName || `Server ${guildId}`;
+				sel.appendChild(parent);
+			}
+			for (const c of inGuild) {
+				const opt = document.createElement("option");
+				opt.value = c.id;
+				opt.textContent = c.name;
+				parent.appendChild(opt);
+			}
 		}
-
-		if (selectedChannelId) sel.value = selectedChannelId;
+		if (selected.channelId) sel.value = selected.channelId;
 	}
 
-	// ── Status message ────────────────────────────────────────────────────
-
-	function setStatus(msg, isOk = false) {
-		const el = document.getElementById("status");
-		el.textContent = msg;
-		el.className = isOk ? "ok" : "";
-		if (isOk) setTimeout(() => { el.textContent = ""; el.className = ""; }, 3000);
-	}
-
-	// ── Event listeners ───────────────────────────────────────────────────
-
-	document.getElementById("host").addEventListener("change", saveGlobal);
-	document.getElementById("port").addEventListener("change", saveGlobal);
-	document.getElementById("apiKey").addEventListener("change", saveGlobal);
-	document.getElementById("channel").addEventListener("change", saveChannel);
+	document.getElementById("channel").addEventListener("change", () => {
+		const channelId = document.getElementById("channel").value;
+		const match = channels.find((c) => c.id === channelId);
+		selected = { channelId, guildId: match ? match.guildId : "" };
+		setButtonSettings(selected);
+	});
 
 	document.getElementById("refreshBtn").addEventListener("click", () => {
 		setStatus("Fetching channels…");
 		document.getElementById("refreshBtn").disabled = true;
-		const host = document.getElementById("host").value.trim() || "localhost";
-		const port = parseInt(document.getElementById("port").value, 10) || 3000;
-		const apiKey = document.getElementById("apiKey").value.trim();
-		// Persist any unsaved changes before triggering the fetch.
-		globals = { host, port, apiKey };
-		ws.send(JSON.stringify({ event: "setGlobalSettings", context, payload: globals }));
-		sendToPlugin({ event: "refreshChannels", host, port, apiKey });
+		const { serverUrl, apiKey } = saveGlobal();
+		sendToPlugin({ event: "refreshChannels", serverUrl, apiKey });
 	});
 </script>
 
