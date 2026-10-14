@@ -1,0 +1,85 @@
+:root {
+	--bg: #2d2d2d;
+	--surface: #3d3d3d;
+	--border: #4a4a4a;
+	--text: #e0e0e0;
+	--label: #9e9e9e;
+	--accent: #e97e10;
+	--error: #e74c3c;
+	--success: #27ae60;
+}
+
+* { box-sizing: border-box; margin: 0; padding: 0; }
+
+body {
+	font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+	font-size: 13px;
+	color: var(--text);
+	background: var(--bg);
+	padding: 12px;
+}
+
+.row {
+	display: flex;
+	align-items: center;
+	margin-bottom: 8px;
+	gap: 8px;
+}
+
+.row label {
+	width: 72px;
+	min-width: 72px;
+	color: var(--label);
+	font-size: 11px;
+	text-transform: uppercase;
+	letter-spacing: 0.04em;
+}
+
+.row input,
+.row select {
+	flex: 1;
+	min-width: 0;
+	background: var(--surface);
+	border: 1px solid var(--border);
+	color: var(--text);
+	border-radius: 3px;
+	padding: 4px 6px;
+	font-size: 13px;
+	outline: none;
+}
+
+.row input:focus,
+.row select:focus {
+	border-color: var(--accent);
+}
+
+.row button {
+	flex: 1;
+	background: var(--surface);
+	border: 1px solid var(--border);
+	color: var(--text);
+	border-radius: 3px;
+	padding: 5px 8px;
+	cursor: pointer;
+	font-size: 13px;
+}
+
+.row button:hover { background: var(--accent); border-color: var(--accent); }
+.row button:disabled { opacity: 0.5; cursor: default; }
+
+#status {
+	margin-top: 4px;
+	font-size: 11px;
+	min-height: 14px;
+	color: var(--error);
+}
+
+#status.ok { color: var(--success); }
+
+#urlWarning {
+	margin: -4px 0 8px 80px;
+	font-size: 11px;
+	color: var(--accent);
+}
+
+#urlWarning:empty { display: none; }

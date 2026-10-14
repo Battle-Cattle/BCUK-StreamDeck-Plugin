@@ -10,7 +10,9 @@ A Stream Deck plugin for controlling the **BCUK Discord bot** from your Stream D
 | **Join Voice** | Tells the bot to join a chosen voice channel. |
 | **Leave Voice** | Tells the bot to leave its current voice channel. |
 
-Each action is configured in the Stream Deck property inspector with the bot's **host**, **port** (default `3000`) and an **API key**. See [`streamdeck-plugin-spec.md`](streamdeck-plugin-spec.md) for the bot's HTTP API.
+Each action is configured in the Stream Deck property inspector with the bot's **Server URL** (e.g. `https://bot.example.com`; a bare host is assumed to be HTTPS) and an **API key** from the bot's web panel (**Streamdeck Key** page). Both are shared by every action. Installs from before 1.2 that saved a host and port keep working over plain HTTP until a Server URL is saved.
+
+The plugin talks to the bot's `/api/streamdeck` routes; see `src/web/routes/streamdeck*.ts` in [BCUK-Bot-4](https://github.com/Battle-Cattle/BCUK-Bot-4) for the API.
 
 ## Requirements
 
@@ -23,6 +25,8 @@ Each action is configured in the Stream Deck property inspector with the bot's *
 ```bash
 npm install
 npm run build        # bundle src/ into com.expiredminotaur.bcuk.sdPlugin/bin
+npm run typecheck    # tsc --noEmit
+npm test             # vitest
 npm run watch        # rebuild on change
 npm run pack         # produce a .streamDeckPlugin installer
 npm run placeholders # regenerate placeholder icons
