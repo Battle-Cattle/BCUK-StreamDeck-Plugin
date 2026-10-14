@@ -71,6 +71,9 @@ export class PlaySfxAction extends SingletonAction<PlaySfxSettings> {
 	// Set when a property inspector opened before the global settings had arrived, so there
 	// was no API key to fetch with yet; the settings listener then fetches on its behalf.
 	private inspectorAwaitingSettings = false;
+	// True once the catalog came from the bot rather than from legacy button settings; from then
+	// on it's authoritative, and legacy lists on buttons that appear later aren't merged into it.
+	private catalogFetched = false;
 	// Shared by every Play SFX button: the catalog is global to the bot, not per button.
 	private triggerCatalog: SfxTrigger[] = [];
 
@@ -83,6 +86,7 @@ export class PlaySfxAction extends SingletonAction<PlaySfxSettings> {
 			// first delivery only replaces the defaults, so it keeps lists migrated from buttons.
 			if (this.globalSettingsLoaded && !sameConnection(this.cachedGlobal, next)) {
 				this.triggerCatalog = [];
+				this.catalogFetched = false;
 				this.connectionGeneration++;
 			}
 			this.cachedGlobal = next;
@@ -156,12 +160,14 @@ export class PlaySfxAction extends SingletonAction<PlaySfxSettings> {
 	}
 
 	/**
-	 * Migrates a button's settings to hold only its command, folding any legacy per-button
-	 * trigger list into the shared in-memory catalog first.
+	 * Migrates a button's settings to hold only its command, first folding any legacy per-button
+	 * trigger list into the shared in-memory catalog unless that has already been fetched.
 	 */
 	override async onWillAppear(ev: WillAppearEvent<PlaySfxSettings>): Promise<void> {
 		const settings = ev.payload.settings as LegacyPlaySfxSettings;
-		this.triggerCatalog = mergeTriggers(this.triggerCatalog, toCatalog(settings.cachedTriggers));
+		if (!this.catalogFetched) {
+			this.triggerCatalog = mergeTriggers(this.triggerCatalog, toCatalog(settings.cachedTriggers));
+		}
 		// Rewrite settings that are missing a command or still carry the legacy catalog, so
 		// every later event for this button carries only the command.
 		if (!settings.command || "cachedTriggers" in settings) {
@@ -246,6 +252,10 @@ export class PlaySfxAction extends SingletonAction<PlaySfxSettings> {
 			}
 
 			const data = (await response.json()) as { ok: boolean; triggers?: JsonValue };
+			if (!Array.isArray(data.triggers)) {
+				await sendError("Server response had no trigger list — check host/port settings");
+				return;
+			}
 			const triggers = toCatalog(data.triggers);
 
 			streamDeck.logger.info(`Triggers received: ${triggers.length}`);
@@ -255,6 +265,7 @@ export class PlaySfxAction extends SingletonAction<PlaySfxSettings> {
 			}
 
 			this.triggerCatalog = triggers;
+			this.catalogFetched = true;
 			await streamDeck.ui.sendToPropertyInspector({
 				event: "commandsLoaded",
 				triggers,
