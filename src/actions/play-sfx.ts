@@ -31,7 +31,7 @@ export class PlaySfxAction extends SingletonAction<PlaySfxSettings> {
 	private readonly catalog = new InspectorCatalog<SfxTrigger>({
 		label: "commands",
 		path: "/sfx",
-		parse: (body) => toSfxTriggers(body.triggers),
+		parse: (body) => (Array.isArray(body.triggers) ? toSfxTriggers(body.triggers) : null),
 		key: (trigger) => trigger.triggerCommand,
 		loadedEvent: "commandsLoaded",
 		errorEvent: "commandsError",

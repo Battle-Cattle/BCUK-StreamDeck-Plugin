@@ -21,7 +21,7 @@ function makeCatalog() {
 	return new InspectorCatalog<string>({
 		label: "things",
 		path: "/things",
-		parse: (body) => (Array.isArray(body.things) ? body.things.filter((t): t is string => typeof t === "string") : []),
+		parse: (body) => (Array.isArray(body.things) ? body.things.filter((t): t is string => typeof t === "string") : null),
 		key: (thing) => thing,
 		loadedEvent: "thingsLoaded",
 		errorEvent: "thingsError",
@@ -155,6 +155,26 @@ describe("InspectorCatalog", () => {
 		makeCatalog();
 		vi.mocked(onGlobalSettingsChanged).mock.calls.at(-1)![0]();
 		expect(apiRequest).not.toHaveBeenCalled();
+	});
+
+	it("reports a response with no list as an error and keeps the current list", async () => {
+		vi.mocked(apiRequest).mockResolvedValueOnce({ ok: true, data: { things: ["a"] } });
+		const catalog = makeCatalog();
+		await catalog.refresh(conn);
+		vi.mocked(apiRequest).mockResolvedValueOnce({ ok: true, data: {} });
+		await catalog.refresh(conn);
+		expect(send).toHaveBeenLastCalledWith({ event: "thingsError", error: "Server response had no things list — check the Server URL" });
+		await catalog.show();
+		expect(send).toHaveBeenLastCalledWith({ event: "thingsLoaded", things: ["a"] });
+	});
+
+	it("ignores legacy seeds once a list has been fetched", async () => {
+		vi.mocked(apiRequest).mockResolvedValueOnce({ ok: true, data: { things: ["fresh"] } });
+		const catalog = makeCatalog();
+		await catalog.refresh(conn);
+		catalog.seed(["stale"]);
+		await catalog.show();
+		expect(send).toHaveBeenLastCalledWith({ event: "thingsLoaded", things: ["fresh"] });
 	});
 
 	it("drops a stale list without fetching when the new connection has no key", async () => {

@@ -31,7 +31,7 @@ export class JoinVoiceAction extends SingletonAction<JoinVoiceSettings> {
 	private readonly catalog = new InspectorCatalog<VoiceChannel>({
 		label: "channels",
 		path: "/voice/channels",
-		parse: (body) => flattenGuildChannels(body.guilds),
+		parse: (body) => (Array.isArray(body.guilds) ? flattenGuildChannels(body.guilds) : null),
 		key: (channel) => channel.id,
 		loadedEvent: "channelsLoaded",
 		errorEvent: "channelsError",
