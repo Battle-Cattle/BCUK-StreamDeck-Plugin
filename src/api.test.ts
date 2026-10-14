@@ -5,7 +5,7 @@ import { streamDeckModuleMock } from "./test-utils/streamdeckMock";
 
 vi.mock("@elgato/streamdeck", () => streamDeckModuleMock());
 
-import { apiRequest, isLocalOrPrivateHost, migrateGlobalSettings, normalizeServerUrl } from "./api";
+import { apiRequest, isLoopbackHost, migrateGlobalSettings, normalizeServerUrl } from "./api";
 
 describe("normalizeServerUrl", () => {
 	it("assumes https for a bare host", () => {
@@ -20,16 +20,16 @@ describe("normalizeServerUrl", () => {
 		expect(normalizeServerUrl("https://example.com/bot/")).toBe("https://example.com/bot");
 	});
 
-	it("assumes plain http for a bare local or private-network address (the bot's own port)", () => {
+	it("assumes plain http only for a bare loopback address, where it never leaves the machine", () => {
 		expect(normalizeServerUrl("localhost:3000")).toBe("http://localhost:3000");
-		expect(normalizeServerUrl("192.168.1.5:3000")).toBe("http://192.168.1.5:3000");
-		expect(normalizeServerUrl("10.0.0.2:3000")).toBe("http://10.0.0.2:3000");
+		expect(normalizeServerUrl("127.0.0.1:3000")).toBe("http://127.0.0.1:3000");
 		expect(normalizeServerUrl("[::1]:3000")).toBe("http://[::1]:3000");
 	});
 
-	it("still assumes https for a bare public IP or hostname, and keeps an explicit https", () => {
+	it("assumes https for a bare LAN or public address, so the key isn't sent unencrypted by default", () => {
+		expect(normalizeServerUrl("192.168.1.5:3000")).toBe("https://192.168.1.5:3000");
+		expect(normalizeServerUrl("10.0.0.2:3000")).toBe("https://10.0.0.2:3000");
 		expect(normalizeServerUrl("203.0.113.7")).toBe("https://203.0.113.7");
-		expect(normalizeServerUrl("https://192.168.1.5")).toBe("https://192.168.1.5");
 	});
 
 	it("rejects blanks, non-http schemes and garbage", () => {
@@ -39,16 +39,16 @@ describe("normalizeServerUrl", () => {
 	});
 });
 
-describe("isLocalOrPrivateHost", () => {
-	it("recognises loopback and private IPv4 ranges", () => {
-		for (const host of ["localhost", "[::1]", "127.0.0.1", "10.1.2.3", "172.16.0.1", "172.31.255.255", "192.168.0.10"]) {
-			expect(isLocalOrPrivateHost(host), host).toBe(true);
+describe("isLoopbackHost", () => {
+	it("recognises localhost, 127.x.x.x and [::1]", () => {
+		for (const host of ["localhost", "[::1]", "127.0.0.1", "127.1.2.3"]) {
+			expect(isLoopbackHost(host), host).toBe(true);
 		}
 	});
 
-	it("rejects public addresses and names, including near-misses of the private ranges", () => {
-		for (const host of ["bot.example.com", "8.8.8.8", "172.15.0.1", "172.32.0.1", "192.169.0.1", "11.0.0.1"]) {
-			expect(isLocalOrPrivateHost(host), host).toBe(false);
+	it("rejects LAN and public addresses and names", () => {
+		for (const host of ["bot.example.com", "192.168.0.10", "10.1.2.3", "172.16.0.1", "8.8.8.8", "localhost.example.com", "128.0.0.1"]) {
+			expect(isLoopbackHost(host), host).toBe(false);
 		}
 	});
 });

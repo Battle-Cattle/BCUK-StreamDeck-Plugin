@@ -86,8 +86,10 @@ export function migrateGlobalSettings(raw: JsonObject): GlobalSettings {
 
 /**
  * Normalises a user-entered server URL into a base URL with no trailing slash. A bare host
- * (no scheme) is assumed to be HTTPS, except a local or private-network address (e.g.
- * `localhost:3000`, `192.168.1.5:3000`), which is almost certainly the bot's own plain-HTTP port.
+ * (no scheme) is assumed to be HTTPS, except a loopback address (`localhost:3000`,
+ * `127.0.0.1:3000`), where plain HTTP never leaves the machine. Anything else, a LAN address
+ * included, only gets plain HTTP when `http://` is typed out, so the API key is never sent
+ * unencrypted over a network by default.
  * @param input The Server URL as typed, e.g. `bot.example.com` or `http://192.168.1.5:3000`.
  * @returns The base URL, or null if it isn't a valid http(s) URL.
  */
@@ -106,8 +108,8 @@ export function normalizeServerUrl(input: string): string | null {
 }
 
 /**
- * The scheme to assume for a Server URL typed without one: `http` for a loopback or
- * private-network host, `https` for anything else.
+ * The scheme to assume for a Server URL typed without one: `http` for a loopback host,
+ * `https` for anything else.
  * @param schemeless The Server URL as typed, without a scheme.
  */
 function defaultScheme(schemeless: string): "http" | "https" {
@@ -117,21 +119,16 @@ function defaultScheme(schemeless: string): "http" | "https" {
 	} catch {
 		return "https";
 	}
-	return isLocalOrPrivateHost(host) ? "http" : "https";
+	return isLoopbackHost(host) ? "http" : "https";
 }
 
 /**
- * Whether a hostname is loopback (`localhost`, `127.x.x.x`, `[::1]`) or a private IPv4 address
- * (`10.x`, `172.16–31.x`, `192.168.x`).
+ * Whether a hostname is loopback (`localhost`, `127.x.x.x`, `[::1]`), so plain HTTP to it never
+ * leaves the machine.
  * @param host A URL hostname.
  */
-export function isLocalOrPrivateHost(host: string): boolean {
-	if (host === "localhost" || host === "[::1]") return true;
-	const octets = /^(\d{1,3})\.(\d{1,3})\.\d{1,3}\.\d{1,3}$/.exec(host);
-	if (!octets) return false;
-	const a = Number(octets[1]);
-	const b = Number(octets[2]);
-	return a === 127 || a === 10 || (a === 192 && b === 168) || (a === 172 && b >= 16 && b <= 31);
+export function isLoopbackHost(host: string): boolean {
+	return host === "localhost" || host === "[::1]" || /^127\.\d{1,3}\.\d{1,3}\.\d{1,3}$/.test(host);
 }
 
 type ApiFailure = Extract<ApiResult<never>, { ok: false }>;
