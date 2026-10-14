@@ -68,6 +68,9 @@ export class PlaySfxAction extends SingletonAction<PlaySfxSettings> {
 	private connectionGeneration = 0;
 	// Bumped per catalog fetch, so only the newest of overlapping fetches is applied.
 	private catalogRequest = 0;
+	// Set when a property inspector opened before the global settings had arrived, so there
+	// was no API key to fetch with yet; the settings listener then fetches on its behalf.
+	private inspectorAwaitingSettings = false;
 	// Shared by every Play SFX button: the catalog is global to the bot, not per button.
 	private triggerCatalog: SfxTrigger[] = [];
 
@@ -84,6 +87,10 @@ export class PlaySfxAction extends SingletonAction<PlaySfxSettings> {
 			}
 			this.cachedGlobal = next;
 			this.globalSettingsLoaded = true;
+			if (this.inspectorAwaitingSettings && next.apiKey && this.triggerCatalog.length === 0) {
+				this.inspectorAwaitingSettings = false;
+				void this.fetchAndPushTriggers(next.host, next.port, next.apiKey);
+			}
 		});
 		// Prime the cache immediately so onKeyDown has real settings on first press.
 		void streamDeck.settings.getGlobalSettings();
@@ -178,6 +185,9 @@ export class PlaySfxAction extends SingletonAction<PlaySfxSettings> {
 		const { host, port, apiKey } = this.cachedGlobal;
 		if (apiKey) {
 			await this.fetchAndPushTriggers(host, port, apiKey);
+		} else if (!this.globalSettingsLoaded) {
+			// Opened before the saved settings arrived (just after startup): fetch once they do.
+			this.inspectorAwaitingSettings = true;
 		}
 	}
 
