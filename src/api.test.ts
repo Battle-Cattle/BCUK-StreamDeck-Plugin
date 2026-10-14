@@ -5,7 +5,7 @@ import { streamDeckModuleMock } from "./test-utils/streamdeckMock";
 
 vi.mock("@elgato/streamdeck", () => streamDeckModuleMock());
 
-import { apiRequest, isLoopbackHost, migrateGlobalSettings, normalizeServerUrl } from "./api";
+import { apiRequest, describeNetworkError, isLoopbackHost, migrateGlobalSettings, normalizeServerUrl } from "./api";
 
 describe("normalizeServerUrl", () => {
 	it("assumes https for a bare host", () => {
@@ -142,6 +142,32 @@ describe("apiRequest", () => {
 	it("reports network errors with a null status", async () => {
 		const result = await apiRequest({ serverUrl: "http://127.0.0.1:1", apiKey: "k" }, "/ok");
 		expect(result).toMatchObject({ ok: false, status: null });
-		expect(!result.ok && result.error).toMatch(/^Network error/);
+		expect(!result.ok && result.error).toBe("Network error — TypeError: fetch failed (bad port)");
+	});
+});
+
+describe("describeNetworkError", () => {
+	it("appends the cause's message, which already names the code", () => {
+		const cause = Object.assign(new Error("connect ECONNREFUSED 10.0.0.5:3000"), { code: "ECONNREFUSED" });
+		expect(describeNetworkError(new TypeError("fetch failed", { cause }))).toBe(
+			"TypeError: fetch failed (connect ECONNREFUSED 10.0.0.5:3000)",
+		);
+	});
+
+	it("prefixes the code when the cause's message doesn't include it", () => {
+		const cause = Object.assign(new Error("other side closed"), { code: "UND_ERR_SOCKET" });
+		expect(describeNetworkError(new TypeError("fetch failed", { cause }))).toBe(
+			"TypeError: fetch failed (UND_ERR_SOCKET: other side closed)",
+		);
+	});
+
+	it("uses the code alone when the cause has no message", () => {
+		const cause = Object.assign(new Error(""), { code: "ECONNRESET" });
+		expect(describeNetworkError(new TypeError("fetch failed", { cause }))).toBe("TypeError: fetch failed (ECONNRESET)");
+	});
+
+	it("falls back to the error itself when there is no cause", () => {
+		expect(describeNetworkError(new TypeError("fetch failed"))).toBe("TypeError: fetch failed");
+		expect(describeNetworkError("boom")).toBe("boom");
 	});
 });

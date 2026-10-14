@@ -1,6 +1,6 @@
 {
 	"Name": "BCUK Bot",
-	"Version": "1.2.1.0",
+	"Version": "1.2.2.0",
 	"Author": "BCUK",
 	"Description": "Control BCUK Bot directly from your Stream Deck.",
 	"Icon": "imgs/plugin/marketplace",
