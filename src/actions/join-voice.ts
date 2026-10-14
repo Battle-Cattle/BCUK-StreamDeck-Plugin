@@ -57,10 +57,14 @@ export class JoinVoiceAction extends SingletonAction<JoinVoiceSettings> {
 		await ev.action.showAlert();
 	}
 
-	/** Migrates a button's settings to hold only its channel and server, dropping legacy lists. */
+	/**
+	 * Migrates a button's settings to hold only its channel and server, dropping legacy lists.
+	 * Settings already in that shape (even with no channel chosen yet) are left alone, so an
+	 * unconfigured button isn't rewritten every time it appears.
+	 */
 	override async onWillAppear(ev: WillAppearEvent<JoinVoiceSettings>): Promise<void> {
 		const settings = ev.payload.settings as LegacyJoinVoiceSettings;
-		if (!settings.channelId || "cachedChannels" in settings) {
+		if (!("channelId" in settings) || !("guildId" in settings) || "cachedChannels" in settings) {
 			await ev.action.setSettings({ channelId: settings.channelId ?? "", guildId: settings.guildId ?? "" });
 		}
 	}

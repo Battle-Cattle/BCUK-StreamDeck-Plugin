@@ -23,7 +23,14 @@ export type ApiResult<T> =
 	| { ok: true; data: T }
 	| { ok: false; status: number | null; error: string };
 
+/** Default timeout for a call, generous enough for Join Voice (the bot allows 30s to connect). */
 const REQUEST_TIMEOUT_MS = 20_000;
+
+/**
+ * Timeout for a key press that should answer almost at once (Play SFX, Leave Voice), so an
+ * unreachable server shows the alert on the key within a few seconds instead of twenty.
+ */
+export const QUICK_KEY_PRESS_TIMEOUT_MS = 5_000;
 
 let globalSettings: GlobalSettings = { serverUrl: "", apiKey: "" };
 let globalSettingsLoaded = false;
@@ -79,14 +86,15 @@ export function migrateGlobalSettings(raw: JsonObject): GlobalSettings {
 
 /**
  * Normalises a user-entered server URL into a base URL with no trailing slash. A bare host
- * (no scheme) is assumed to be HTTPS.
+ * (no scheme) is assumed to be HTTPS, except a local or private-network address (e.g.
+ * `localhost:3000`, `192.168.1.5:3000`), which is almost certainly the bot's own plain-HTTP port.
  * @param input The Server URL as typed, e.g. `bot.example.com` or `http://192.168.1.5:3000`.
  * @returns The base URL, or null if it isn't a valid http(s) URL.
  */
 export function normalizeServerUrl(input: string): string | null {
 	const trimmed = input.trim();
 	if (!trimmed) return null;
-	const withScheme = /^[a-z][a-z\d+.-]*:\/\//i.test(trimmed) ? trimmed : `https://${trimmed}`;
+	const withScheme = /^[a-z][a-z\d+.-]*:\/\//i.test(trimmed) ? trimmed : `${defaultScheme(trimmed)}://${trimmed}`;
 	let url: URL;
 	try {
 		url = new URL(withScheme);
@@ -97,6 +105,35 @@ export function normalizeServerUrl(input: string): string | null {
 	return `${url.origin}${url.pathname.replace(/\/+$/, "")}`;
 }
 
+/**
+ * The scheme to assume for a Server URL typed without one: `http` for a loopback or
+ * private-network host, `https` for anything else.
+ * @param schemeless The Server URL as typed, without a scheme.
+ */
+function defaultScheme(schemeless: string): "http" | "https" {
+	let host: string;
+	try {
+		host = new URL(`http://${schemeless}`).hostname;
+	} catch {
+		return "https";
+	}
+	return isLocalOrPrivateHost(host) ? "http" : "https";
+}
+
+/**
+ * Whether a hostname is loopback (`localhost`, `127.x.x.x`, `[::1]`) or a private IPv4 address
+ * (`10.x`, `172.16–31.x`, `192.168.x`).
+ * @param host A URL hostname.
+ */
+export function isLocalOrPrivateHost(host: string): boolean {
+	if (host === "localhost" || host === "[::1]") return true;
+	const octets = /^(\d{1,3})\.(\d{1,3})\.\d{1,3}\.\d{1,3}$/.exec(host);
+	if (!octets) return false;
+	const a = Number(octets[1]);
+	const b = Number(octets[2]);
+	return a === 127 || a === 10 || (a === 192 && b === 168) || (a === 172 && b >= 16 && b <= 31);
+}
+
 type ApiFailure = Extract<ApiResult<never>, { ok: false }>;
 
 /**
@@ -104,15 +141,21 @@ type ApiFailure = Extract<ApiResult<never>, { ok: false }>;
  * @param conn Server URL and API key to use.
  * @param path Path under `/api/streamdeck`, e.g. `/sfx`.
  * @param body JSON body to POST; omit for a GET.
+ * @param timeoutMs How long to wait for the whole response, body included.
  * @returns The parsed body on success, otherwise the status (null for network errors) and the
  *   bot's own error message where it sent one.
  */
-export async function apiRequest<T>(conn: Connection, path: string, body?: JsonObject): Promise<ApiResult<T>> {
+export async function apiRequest<T>(
+	conn: Connection,
+	path: string,
+	body?: JsonObject,
+	timeoutMs = REQUEST_TIMEOUT_MS,
+): Promise<ApiResult<T>> {
 	const request = buildRequest(conn, path, body);
 	if ("error" in request) return request;
 
 	const controller = new AbortController();
-	const timer = setTimeout(() => controller.abort(), REQUEST_TIMEOUT_MS);
+	const timer = setTimeout(() => controller.abort(), timeoutMs);
 	try {
 		const response = await fetch(request.url, { ...request.init, signal: controller.signal });
 		// Read the body inside the timeout too, not just the headers.

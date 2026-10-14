@@ -6,7 +6,7 @@ import streamDeck, {
 	SingletonAction,
 	type WillAppearEvent,
 } from "@elgato/streamdeck";
-import { apiRequest, getConnection, logFailure } from "../api";
+import { apiRequest, getConnection, logFailure, QUICK_KEY_PRESS_TIMEOUT_MS } from "../api";
 import { InspectorCatalog } from "../inspectorCatalog";
 import { type SfxTrigger, toSfxTriggers } from "../sfxTriggers";
 
@@ -47,7 +47,7 @@ export class PlaySfxAction extends SingletonAction<PlaySfxSettings> {
 			return;
 		}
 
-		const result = await apiRequest(getConnection(), "/sfx", { command });
+		const result = await apiRequest(getConnection(), "/sfx", { command }, QUICK_KEY_PRESS_TIMEOUT_MS);
 		if (result.ok) {
 			await ev.action.showOk();
 			return;
@@ -63,9 +63,10 @@ export class PlaySfxAction extends SingletonAction<PlaySfxSettings> {
 	override async onWillAppear(ev: WillAppearEvent<PlaySfxSettings>): Promise<void> {
 		const settings = ev.payload.settings as LegacyPlaySfxSettings;
 		this.catalog.seed(toSfxTriggers(settings.cachedTriggers));
-		// Rewrite settings that are missing a command or still carry the legacy catalog, so
-		// every later event for this button carries only the command.
-		if (!settings.command || "cachedTriggers" in settings) {
+		// Rewrite settings that have no command field yet (a new button) or still carry the legacy
+		// catalog, so every later event for this button carries only the command. A button that
+		// already holds `command: ""` is left alone rather than rewritten on every appearance.
+		if (!("command" in settings) || "cachedTriggers" in settings) {
 			await ev.action.setSettings({ command: settings.command ?? "" });
 		}
 	}

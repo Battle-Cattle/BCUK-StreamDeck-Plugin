@@ -80,6 +80,21 @@ function sendToPlugin(payload) {
 	send("sendToPlugin", payload);
 }
 
+// Selects `value` in a dropdown. If the list has loaded but no longer has it (e.g. a command
+// renamed or deleted on the bot), adds it as "<label> (not found)" instead of silently showing
+// the placeholder, so it's clear why the key now shows an alert.
+function selectSaved(select, value, label, listLoaded) {
+	if (!value) return;
+	const present = [...select.options].some((opt) => opt.value === value);
+	if (!present && listLoaded) {
+		const opt = document.createElement("option");
+		opt.value = value;
+		opt.textContent = `${label} (not found)`;
+		select.appendChild(opt);
+	}
+	select.value = value;
+}
+
 function setStatus(msg, isOk = false) {
 	const el = document.getElementById("status");
 	el.textContent = msg;
