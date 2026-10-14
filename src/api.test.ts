@@ -5,7 +5,7 @@ import { streamDeckModuleMock } from "./test-utils/streamdeckMock";
 
 vi.mock("@elgato/streamdeck", () => streamDeckModuleMock());
 
-import { apiRequest, migrateGlobalSettings, normalizeServerUrl } from "./api";
+import { apiRequest, isLoopbackHost, migrateGlobalSettings, normalizeServerUrl } from "./api";
 
 describe("normalizeServerUrl", () => {
 	it("assumes https for a bare host", () => {
@@ -20,10 +20,36 @@ describe("normalizeServerUrl", () => {
 		expect(normalizeServerUrl("https://example.com/bot/")).toBe("https://example.com/bot");
 	});
 
+	it("assumes plain http only for a bare loopback address, where it never leaves the machine", () => {
+		expect(normalizeServerUrl("localhost:3000")).toBe("http://localhost:3000");
+		expect(normalizeServerUrl("127.0.0.1:3000")).toBe("http://127.0.0.1:3000");
+		expect(normalizeServerUrl("[::1]:3000")).toBe("http://[::1]:3000");
+	});
+
+	it("assumes https for a bare LAN or public address, so the key isn't sent unencrypted by default", () => {
+		expect(normalizeServerUrl("192.168.1.5:3000")).toBe("https://192.168.1.5:3000");
+		expect(normalizeServerUrl("10.0.0.2:3000")).toBe("https://10.0.0.2:3000");
+		expect(normalizeServerUrl("203.0.113.7")).toBe("https://203.0.113.7");
+	});
+
 	it("rejects blanks, non-http schemes and garbage", () => {
 		expect(normalizeServerUrl("")).toBeNull();
 		expect(normalizeServerUrl("ftp://example.com")).toBeNull();
 		expect(normalizeServerUrl("http://")).toBeNull();
+	});
+});
+
+describe("isLoopbackHost", () => {
+	it("recognises localhost, 127.x.x.x and [::1]", () => {
+		for (const host of ["localhost", "[::1]", "127.0.0.1", "127.1.2.3"]) {
+			expect(isLoopbackHost(host), host).toBe(true);
+		}
+	});
+
+	it("rejects LAN and public addresses and names", () => {
+		for (const host of ["bot.example.com", "192.168.0.10", "10.1.2.3", "172.16.0.1", "8.8.8.8", "localhost.example.com", "128.0.0.1"]) {
+			expect(isLoopbackHost(host), host).toBe(false);
+		}
 	});
 });
 
@@ -62,6 +88,7 @@ describe("apiRequest", () => {
 				if (req.url === "/api/streamdeck/ok") send(200, JSON.stringify({ ok: true, value: 1 }));
 				else if (req.url === "/api/streamdeck/forbidden") send(403, JSON.stringify({ ok: false, error: "Key not approved for this guild" }));
 				else if (req.url === "/api/streamdeck/limited") send(429, "Too many requests", "text/plain");
+				else if (req.url === "/api/streamdeck/slow") setTimeout(() => send(200, JSON.stringify({ ok: true })), 300);
 				else send(200, "<html>proxy page</html>", "text/html");
 			});
 		});
@@ -105,6 +132,11 @@ describe("apiRequest", () => {
 	it("reports missing settings without making a request", async () => {
 		expect(await apiRequest({ serverUrl: "", apiKey: "k" }, "/ok")).toMatchObject({ ok: false, status: null, error: "Server URL is not set or invalid" });
 		expect(await apiRequest({ serverUrl: baseUrl, apiKey: "" }, "/ok")).toMatchObject({ ok: false, status: null, error: "API key is not set" });
+	});
+
+	it("gives up after the per-call timeout", async () => {
+		expect(await apiRequest({ serverUrl: baseUrl, apiKey: "k" }, "/slow", undefined, 50))
+			.toEqual({ ok: false, status: null, error: "Request timed out" });
 	});
 
 	it("reports network errors with a null status", async () => {

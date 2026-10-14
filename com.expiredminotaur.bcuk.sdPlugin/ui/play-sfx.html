@@ -32,11 +32,12 @@
 <script>
 	// Per-button settings: just the command. The trigger list comes from the plugin.
 	let command = "";
+	let listLoaded = false;
 
 	function onButtonSettings(s) {
 		command = s.command || "";
 		// If commandsLoaded already populated the dropdown, apply the saved selection now.
-		if (command) document.getElementById("command").value = command;
+		selectSaved(document.getElementById("command"), command, command, listLoaded);
 	}
 
 	function onPluginMessage(payload) {
@@ -58,7 +59,8 @@
 			opt.textContent = t.categoryName ? `[${t.categoryName}] ${t.triggerCommand}` : t.triggerCommand;
 			sel.appendChild(opt);
 		}
-		if (command) sel.value = command;
+		listLoaded = true;
+		selectSaved(sel, command, command, listLoaded);
 	}
 
 	document.getElementById("command").addEventListener("change", () => {

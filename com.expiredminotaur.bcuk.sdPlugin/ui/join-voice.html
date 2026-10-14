@@ -33,10 +33,11 @@
 	// Per-button settings: the chosen channel and its server. The channel list comes from the plugin.
 	let selected = { channelId: "", guildId: "" };
 	let channels = [];
+	let listLoaded = false;
 
 	function onButtonSettings(s) {
 		selected = { channelId: s.channelId || "", guildId: s.guildId || "" };
-		if (selected.channelId) document.getElementById("channel").value = selected.channelId;
+		selectSaved(document.getElementById("channel"), selected.channelId, "Saved channel", listLoaded);
 	}
 
 	function onPluginMessage(payload) {
@@ -70,13 +71,16 @@
 				parent.appendChild(opt);
 			}
 		}
-		if (selected.channelId) sel.value = selected.channelId;
+		listLoaded = true;
+		selectSaved(sel, selected.channelId, "Saved channel", listLoaded);
 	}
 
 	document.getElementById("channel").addEventListener("change", () => {
 		const channelId = document.getElementById("channel").value;
 		const match = channels.find((c) => c.id === channelId);
-		selected = { channelId, guildId: match ? match.guildId : "" };
+		// Re-picking a "(not found)" saved channel keeps the server it was saved with.
+		const guildId = match ? match.guildId : channelId === selected.channelId ? selected.guildId : "";
+		selected = { channelId, guildId };
 		setButtonSettings(selected);
 	});
 

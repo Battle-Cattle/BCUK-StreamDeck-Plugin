@@ -1,5 +1,5 @@
 import { action, type KeyDownEvent, SingletonAction } from "@elgato/streamdeck";
-import { apiRequest, getConnection, logFailure } from "../api";
+import { apiRequest, getConnection, logFailure, QUICK_KEY_PRESS_TIMEOUT_MS } from "../api";
 import { getLastJoinedGuildId, setLastJoinedGuildId } from "../voiceState";
 
 @action({ UUID: "com.expiredminotaur.bcuk.leave" })
@@ -9,7 +9,12 @@ export class LeaveVoiceAction extends SingletonAction {
 		// Name the guild this Stream Deck last joined when we know it; otherwise the bot leaves
 		// whichever server the key owner is currently in voice in.
 		const guildId = getLastJoinedGuildId();
-		const result = await apiRequest(getConnection(), "/voice/leave", guildId ? { guildId } : {});
+		const result = await apiRequest(
+			getConnection(),
+			"/voice/leave",
+			guildId ? { guildId } : {},
+			QUICK_KEY_PRESS_TIMEOUT_MS,
+		);
 		if (result.ok) {
 			setLastJoinedGuildId(null);
 			await ev.action.showOk();

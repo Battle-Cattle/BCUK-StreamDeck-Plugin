@@ -80,6 +80,27 @@ function sendToPlugin(payload) {
 	send("sendToPlugin", payload);
 }
 
+/**
+ * Selects a button's saved value in a dropdown. If the list has loaded but no longer has it
+ * (e.g. a command renamed or deleted on the bot), adds it as "<label> (not found)" instead of
+ * silently showing the placeholder, so it's clear why the key now shows an alert.
+ * @param {HTMLSelectElement} select The dropdown.
+ * @param {string} value The saved value; nothing happens when it's empty.
+ * @param {string} label Text for the "(not found)" option.
+ * @param {boolean} listLoaded Whether the plugin's list has been loaded into the dropdown yet.
+ */
+function selectSaved(select, value, label, listLoaded) {
+	if (!value) return;
+	const present = [...select.options].some((opt) => opt.value === value);
+	if (!present && listLoaded) {
+		const opt = document.createElement("option");
+		opt.value = value;
+		opt.textContent = `${label} (not found)`;
+		select.appendChild(opt);
+	}
+	select.value = value;
+}
+
 function setStatus(msg, isOk = false) {
 	const el = document.getElementById("status");
 	el.textContent = msg;
