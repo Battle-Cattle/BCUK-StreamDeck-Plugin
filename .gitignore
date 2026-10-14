@@ -14,3 +14,6 @@ Thumbs.db
 
 # Packed plugin (CI release output)
 dist/
+
+# Tool downloads (e.g. a zizmor wheel fetched for a local CI-lint run)
+*.whl
