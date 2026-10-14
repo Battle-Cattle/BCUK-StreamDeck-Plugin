@@ -1,0 +1,100 @@
+name: CI
+
+on:
+  pull_request:
+  push:
+    branches: [main]
+
+permissions:
+  contents: read
+
+jobs:
+  check:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20.x
+          cache: npm
+      - run: npm ci
+      - run: npm run typecheck
+      - run: npm test
+      - run: npm run build
+      - name: Validate the plugin package
+        run: npx streamdeck pack com.expiredminotaur.bcuk.sdPlugin --dry-run --no-update-check
+
+  # Publishes the packed plugin as a GitHub Release whenever main carries a manifest version
+  # that hasn't been released yet. The bot's web panel links to the latest release's asset, so
+  # bumping "Version" in manifest.json and merging is all a release takes.
+  release:
+    needs: check
+    if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    concurrency:
+      group: release
+      cancel-in-progress: false
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20.x
+          cache: npm
+      - name: Read the manifest version
+        id: version
+        run: |
+          version=$(node -p "require('./com.expiredminotaur.bcuk.sdPlugin/manifest.json').Version")
+          echo "tag=v$version" >> "$GITHUB_OUTPUT"
+      - name: Check whether this version is already released
+        id: existing
+        env:
+          GH_TOKEN: ${{ github.token }}
+          TAG: ${{ steps.version.outputs.tag }}
+        run: |
+          if out=$(gh release view "$TAG" --repo "$GITHUB_REPOSITORY" 2>&1); then
+            echo "released=true" >> "$GITHUB_OUTPUT"
+            echo "$TAG is already released; nothing to do."
+            exit 0
+          fi
+          # Only "no such release" means publish; any other lookup failure (API, auth) stops here.
+          if ! grep -qi 'release not found' <<<"$out"; then
+            echo "::error::Could not check for release $TAG: $out"
+            exit 1
+          fi
+          # gh release create reuses an existing tag instead of tagging --target, so a tag pushed
+          # by hand must already point at this commit or the release would ship the wrong code.
+          refs=$(gh api "repos/$GITHUB_REPOSITORY/git/matching-refs/tags/$TAG" --jq '.[].ref')
+          if grep -Fxq "refs/tags/$TAG" <<<"$refs"; then
+            tag_sha=$(gh api "repos/$GITHUB_REPOSITORY/commits/refs/tags/$TAG" --jq .sha)
+            if [ "$tag_sha" != "$GITHUB_SHA" ]; then
+              echo "::error::Tag $TAG already exists at $tag_sha, not $GITHUB_SHA. Delete the tag or bump Version in manifest.json."
+              exit 1
+            fi
+          fi
+          echo "released=false" >> "$GITHUB_OUTPUT"
+      - if: steps.existing.outputs.released == 'false'
+        run: npm ci
+      - if: steps.existing.outputs.released == 'false'
+        run: npm run build
+      - name: Pack the plugin
+        if: steps.existing.outputs.released == 'false'
+        run: npx streamdeck pack com.expiredminotaur.bcuk.sdPlugin --force --no-update-check -o dist
+      - name: Publish the release
+        if: steps.existing.outputs.released == 'false'
+        env:
+          GH_TOKEN: ${{ github.token }}
+          TAG: ${{ steps.version.outputs.tag }}
+        run: |
+          gh release create "$TAG" \
+            dist/com.expiredminotaur.bcuk.streamDeckPlugin \
+            --repo "$GITHUB_REPOSITORY" \
+            --target "$GITHUB_SHA" \
+            --title "BCUK Bot Stream Deck plugin $TAG" \
+            --generate-notes \
+            --latest

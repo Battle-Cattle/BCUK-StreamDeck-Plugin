@@ -33,3 +33,9 @@ npm run placeholders # regenerate placeholder icons
 ```
 
 Source lives in `src/` (TypeScript); the plugin bundle (manifest, icons, property inspector UIs) lives in `com.expiredminotaur.bcuk.sdPlugin/`.
+
+## Releases
+
+CI (`.github/workflows/ci.yml`) type-checks, tests and builds every pull request. On `main`, whenever `Version` in `com.expiredminotaur.bcuk.sdPlugin/manifest.json` hasn't been released yet, it packs the plugin and publishes it as a GitHub Release tagged `v<version>` with `com.expiredminotaur.bcuk.streamDeckPlugin` attached.
+
+To ship an update: bump `Version` in the manifest and merge. The bot's web panel links to the latest release's download (`https://github.com/Battle-Cattle/BCUK-StreamDeck-Plugin/releases/latest/download/com.expiredminotaur.bcuk.streamDeckPlugin`), so nothing needs updating on the bot's server.
