@@ -1,0 +1,82 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+	<meta charset="utf-8" />
+	<title>Advanced Command</title>
+	<link rel="stylesheet" href="pi-common.css" />
+</head>
+<body>
+
+<div class="row">
+	<label for="serverUrl">Server URL</label>
+	<input type="text" id="serverUrl" placeholder="https://bot.example.com" autocomplete="off" spellcheck="false" />
+</div>
+<div id="urlWarning"></div>
+<div class="row">
+	<label for="apiKey">API Key</label>
+	<input type="password" id="apiKey" placeholder="64-char hex key" autocomplete="off" spellcheck="false" />
+</div>
+<div class="row">
+	<label for="command">Command</label>
+	<select id="command">
+		<option value="">— select a command —</option>
+	</select>
+</div>
+<div class="row">
+	<label></label>
+	<button id="refreshBtn">Refresh Commands</button>
+</div>
+<div id="status"></div>
+
+<script src="pi-common.js"></script>
+<script>
+	// Shared by Trigger Command and Toggle Command. Per-button settings: just the command's id.
+	// The command list (your own advanced commands, from the bot's /advanced-commands page)
+	// comes from the plugin.
+	let commandId = "";
+	let listLoaded = false;
+
+	function onButtonSettings(s) {
+		commandId = s.commandId || "";
+		selectSaved(document.getElementById("command"), commandId, "Saved command", listLoaded);
+	}
+
+	function onPluginMessage(payload) {
+		if (payload.event === "commandsLoaded") {
+			populateDropdown(payload.commands || []);
+			setStatus("Commands loaded.", true);
+		} else if (payload.event === "commandsError") {
+			setStatus(`Error: ${payload.error}`);
+		}
+		document.getElementById("refreshBtn").disabled = false;
+	}
+
+	function populateDropdown(commands) {
+		const sel = document.getElementById("command");
+		sel.innerHTML = '<option value="">— select a command —</option>';
+		for (const c of commands) {
+			const opt = document.createElement("option");
+			opt.value = String(c.id);
+			const trigger = c.trigger ? ` (${c.trigger})` : "";
+			opt.textContent = `${c.name}${trigger}${c.isEnabled ? "" : " — disabled"}`;
+			sel.appendChild(opt);
+		}
+		listLoaded = true;
+		selectSaved(sel, commandId, "Saved command", listLoaded);
+	}
+
+	document.getElementById("command").addEventListener("change", () => {
+		commandId = document.getElementById("command").value;
+		setButtonSettings({ commandId });
+	});
+
+	document.getElementById("refreshBtn").addEventListener("click", () => {
+		setStatus("Fetching commands…");
+		document.getElementById("refreshBtn").disabled = true;
+		const { serverUrl, apiKey } = saveGlobal();
+		sendToPlugin({ event: "refreshCommands", serverUrl, apiKey });
+	});
+</script>
+
+</body>
+</html>

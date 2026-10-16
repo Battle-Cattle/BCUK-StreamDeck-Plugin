@@ -57,6 +57,16 @@ function speakerErrorSvg(size) {
 		</svg>`);
 }
 
+// Lightning bolt for trigger-command / toggle-command (dimmed for the "off" state)
+function boltSvg(size, opacity = 0.9) {
+	const s = size;
+	return Buffer.from(`
+		<svg xmlns="http://www.w3.org/2000/svg" width="${s}" height="${s}" viewBox="0 0 24 24">
+			<rect width="24" height="24" fill="none"/>
+			<path d="M13 2L4 14h7l-1 8 9-12h-7l1-8z" fill="white" opacity="${opacity}"/>
+		</svg>`);
+}
+
 // BCUK label SVG for marketplace / category icons
 function labelSvg(size) {
 	const fs = Math.round(size * 0.3);
@@ -130,6 +140,20 @@ await Promise.all([
 	// Key face — leave-voice default
 	makeIcon(`${root}/imgs/actions/leave-voice/key-default.png`, 72, DARK_RED, leaveVoiceSvg(48)),
 	makeIcon(`${root}/imgs/actions/leave-voice/key-default@2x.png`, 144, DARK_RED, leaveVoiceSvg(96)),
+
+	// trigger-command
+	makeIcon(`${root}/imgs/actions/trigger-command/icon.png`, 28, DARK, boltSvg(20)),
+	makeIcon(`${root}/imgs/actions/trigger-command/icon@2x.png`, 56, DARK, boltSvg(40)),
+	makeIcon(`${root}/imgs/actions/trigger-command/key-default.png`, 72, DARK, boltSvg(48)),
+	makeIcon(`${root}/imgs/actions/trigger-command/key-default@2x.png`, 144, DARK, boltSvg(96)),
+
+	// toggle-command: "on" (enabled) and dimmed "off" (disabled) key states
+	makeIcon(`${root}/imgs/actions/toggle-command/icon.png`, 28, DARK, boltSvg(20)),
+	makeIcon(`${root}/imgs/actions/toggle-command/icon@2x.png`, 56, DARK, boltSvg(40)),
+	makeIcon(`${root}/imgs/actions/toggle-command/key-on.png`, 72, DARK, boltSvg(48)),
+	makeIcon(`${root}/imgs/actions/toggle-command/key-on@2x.png`, 144, DARK, boltSvg(96)),
+	makeIcon(`${root}/imgs/actions/toggle-command/key-off.png`, 72, DARK_RED, boltSvg(48, 0.35)),
+	makeIcon(`${root}/imgs/actions/toggle-command/key-off@2x.png`, 144, DARK_RED, boltSvg(96, 0.35)),
 ]);
 
 console.log("\nDone.");

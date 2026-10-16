@@ -1,6 +1,6 @@
 {
 	"Name": "BCUK Bot",
-	"Version": "1.2.2.0",
+	"Version": "1.3.0.0",
 	"Author": "BCUK",
 	"Description": "Control BCUK Bot directly from your Stream Deck.",
 	"Icon": "imgs/plugin/marketplace",
@@ -71,6 +71,42 @@
 				{
 					"Image": "imgs/actions/leave-voice/key-default",
 					"Name": "Default"
+				}
+			]
+		},
+		{
+			"Name": "Trigger Command",
+			"UUID": "com.expiredminotaur.bcuk.command",
+			"Icon": "imgs/actions/trigger-command/icon",
+			"Tooltip": "Fire one of your advanced commands for free.",
+			"PropertyInspectorPath": "ui/advanced-command.html",
+			"Controllers": [
+				"Keypad"
+			],
+			"States": [
+				{
+					"Image": "imgs/actions/trigger-command/key-default",
+					"Name": "Default"
+				}
+			]
+		},
+		{
+			"Name": "Toggle Command",
+			"UUID": "com.expiredminotaur.bcuk.command-toggle",
+			"Icon": "imgs/actions/toggle-command/icon",
+			"Tooltip": "Enable or disable one of your advanced commands.",
+			"PropertyInspectorPath": "ui/advanced-command.html",
+			"Controllers": [
+				"Keypad"
+			],
+			"States": [
+				{
+					"Image": "imgs/actions/toggle-command/key-on",
+					"Name": "Enabled"
+				},
+				{
+					"Image": "imgs/actions/toggle-command/key-off",
+					"Name": "Disabled"
 				}
 			]
 		}
