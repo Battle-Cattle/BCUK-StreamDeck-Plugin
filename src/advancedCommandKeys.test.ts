@@ -142,6 +142,23 @@ describe("syncToggleState", () => {
 		expect(k.setState).toHaveBeenCalledWith(1);
 	});
 
+	it("keeps a toggle's response from overwriting the state of a newly selected command", async () => {
+		const pressed = deferred<unknown>();
+		vi.mocked(apiRequest)
+			.mockReturnValueOnce(pressed.promise as never)
+			.mockResolvedValueOnce({ ok: true, data: { commands: [{ id: 8, name: "Stretch", isEnabled: false }] } });
+		const k = key();
+
+		const press = toggleCommand(k, "7");
+		await syncToggleState(k, "8");
+		pressed.resolve({ ok: true, data: { isEnabled: true } });
+		await press;
+
+		expect(k.setState).toHaveBeenCalledTimes(1);
+		expect(k.setState).toHaveBeenCalledWith(1);
+		expect(k.showOk).toHaveBeenCalled();
+	});
+
 	it("tracks keys independently", async () => {
 		vi.mocked(apiRequest).mockResolvedValue({ ok: true, data: { commands: [{ id: 7, name: "Hydrate", isEnabled: true }] } });
 		const a = key();

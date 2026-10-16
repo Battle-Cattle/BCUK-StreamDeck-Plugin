@@ -72,7 +72,8 @@ export async function triggerCommand(key: CommandKey, savedId: JsonValue | undef
 }
 
 /**
- * Flips a button's advanced command on or off and shows the new state on the key.
+ * Flips a button's advanced command on or off and shows the new state on the key (unless the key's
+ * command changed while the request was in flight).
  * @param key The pressed key.
  * @param savedId The button's saved command id.
  */
@@ -84,13 +85,16 @@ export async function toggleCommand(key: CommandKey, savedId: JsonValue | undefi
 		return;
 	}
 
-	// The press's response is authoritative: discard any state sync still in flight.
-	nextGeneration(key);
+	// The press's response is authoritative over any state sync still in flight, but is itself
+	// superseded if the key's command changes (a new sync) before it arrives.
+	const generation = nextGeneration(key);
 	const result = await apiRequest<{ isEnabled?: JsonValue }>(
 		getConnection(), "/advanced-commands/enabled", { commandId }, QUICK_KEY_PRESS_TIMEOUT_MS,
 	);
 	if (result.ok && typeof result.data.isEnabled === "boolean") {
-		await key.setState(stateFor(result.data.isEnabled));
+		// The press did take effect, so the OK is still shown; only the state of a command the key
+		// no longer shows is skipped.
+		if (isCurrent(key, generation)) await key.setState(stateFor(result.data.isEnabled));
 		await key.showOk();
 		return;
 	}
