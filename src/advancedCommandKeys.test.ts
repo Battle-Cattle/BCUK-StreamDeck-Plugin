@@ -12,8 +12,16 @@ vi.mock("./api", () => ({
 import { apiRequest, logFailure } from "./api";
 import { stateFor, syncToggleState, toggleCommand, triggerCommand } from "./advancedCommandKeys";
 
-function key() {
-	return { showOk: vi.fn(), showAlert: vi.fn(), setState: vi.fn() };
+let keyCount = 0;
+function key(id = `key-${++keyCount}`) {
+	return { id, showOk: vi.fn(), showAlert: vi.fn(), setState: vi.fn() };
+}
+
+/** An apiRequest result that resolves only when `resolve` is called, to control completion order. */
+function deferred<T>() {
+	let resolve!: (value: T) => void;
+	const promise = new Promise<T>((r) => { resolve = r; });
+	return { promise, resolve };
 }
 
 beforeEach(() => vi.clearAllMocks());
@@ -99,5 +107,47 @@ describe("syncToggleState", () => {
 		await syncToggleState(offline, "7");
 		expect(offline.setState).not.toHaveBeenCalled();
 		expect(logFailure).toHaveBeenCalled();
+	});
+
+	it("discards a sync superseded by a newer sync for another command", async () => {
+		const stale = deferred<unknown>();
+		const fresh = deferred<unknown>();
+		vi.mocked(apiRequest).mockReturnValueOnce(stale.promise as never).mockReturnValueOnce(fresh.promise as never);
+		const k = key();
+
+		const first = syncToggleState(k, "7");
+		const second = syncToggleState(k, "8");
+		fresh.resolve({ ok: true, data: { commands: [{ id: 8, name: "Stretch", isEnabled: false }] } });
+		await second;
+		stale.resolve({ ok: true, data: { commands: [{ id: 7, name: "Hydrate", isEnabled: true }] } });
+		await first;
+
+		expect(k.setState).toHaveBeenCalledTimes(1);
+		expect(k.setState).toHaveBeenCalledWith(1);
+	});
+
+	it("discards a sync that finishes after a key press", async () => {
+		const stale = deferred<unknown>();
+		vi.mocked(apiRequest)
+			.mockReturnValueOnce(stale.promise as never)
+			.mockResolvedValueOnce({ ok: true, data: { isEnabled: false } });
+		const k = key();
+
+		const sync = syncToggleState(k, "7");
+		await toggleCommand(k, "7");
+		stale.resolve({ ok: true, data: { commands: [{ id: 7, name: "Hydrate", isEnabled: true }] } });
+		await sync;
+
+		expect(k.setState).toHaveBeenCalledTimes(1);
+		expect(k.setState).toHaveBeenCalledWith(1);
+	});
+
+	it("tracks keys independently", async () => {
+		vi.mocked(apiRequest).mockResolvedValue({ ok: true, data: { commands: [{ id: 7, name: "Hydrate", isEnabled: true }] } });
+		const a = key();
+		const b = key();
+		await Promise.all([syncToggleState(a, "7"), syncToggleState(b, "7")]);
+		expect(a.setState).toHaveBeenCalledWith(0);
+		expect(b.setState).toHaveBeenCalledWith(0);
 	});
 });
