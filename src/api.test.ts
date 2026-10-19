@@ -216,13 +216,14 @@ describe("initGlobalSettings", () => {
 		) => void;
 		vi.mocked(streamDeck.logger.warn).mockClear();
 
-		onSettings({ settings: { serverUrl: "http://user:secret@a.lan:3000/?token=t", apiKey: "k" } });
+		onSettings({ settings: { serverUrl: "http://user:secret@a.lan:3000/hook/pathsecret?token=t", apiKey: "k" } });
 		onSettings({ settings: { serverUrl: "http://b.lan:3000", apiKey: "k" } });
-		onSettings({ settings: { serverUrl: "http://user:secret@a.lan:3000/?token=t", apiKey: "k" } });
+		onSettings({ settings: { serverUrl: "http://user:secret@a.lan:3000/hook/pathsecret?token=t", apiKey: "k" } });
 		expect(streamDeck.logger.warn).toHaveBeenCalledTimes(2);
 		const first = vi.mocked(streamDeck.logger.warn).mock.calls[0]![0] as string;
 		expect(first).toContain("http://a.lan:3000");
 		expect(first).not.toContain("secret");
 		expect(first).not.toContain("token");
+		expect(first).not.toContain("pathsecret");
 	});
 });
