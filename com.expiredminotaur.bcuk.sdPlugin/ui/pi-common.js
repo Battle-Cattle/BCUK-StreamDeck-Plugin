@@ -63,9 +63,21 @@ function updateUrlWarning() {
 	const el = document.getElementById("urlWarning");
 	if (!el) return;
 	const url = globals.serverUrl;
-	// Loopback matches the plugin's isLoopbackHost (src/api.ts): localhost, [::1] and all of 127.x.x.x.
-	const insecure = /^http:\/\//i.test(url) && !/^http:\/\/(localhost|127\.\d{1,3}\.\d{1,3}\.\d{1,3}|\[::1\])(:|\/|$)/i.test(url);
+	const insecure = /^http:\/\//i.test(url) && !isLoopbackUrl(url);
 	el.textContent = insecure ? "Plain HTTP sends your API key unencrypted. Use https:// if the bot has it." : "";
+}
+
+// Whether a URL's host is this machine. Matches the plugin's isLoopbackHost (src/api.ts):
+// localhost, [::1] and all of 127.x.x.x. The host is parsed, so user-info such as
+// http://127.0.0.1:x@remote.example can't pass for loopback; an unparseable URL isn't loopback.
+function isLoopbackUrl(url) {
+	let host;
+	try {
+		host = new URL(url).hostname;
+	} catch {
+		return false;
+	}
+	return host === "localhost" || host === "[::1]" || /^127\.\d{1,3}\.\d{1,3}\.\d{1,3}$/.test(host);
 }
 
 function send(event, payload) {

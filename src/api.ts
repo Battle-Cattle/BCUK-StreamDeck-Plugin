@@ -36,7 +36,7 @@ let globalSettings: GlobalSettings = { serverUrl: "", apiKey: "" };
 let globalSettingsLoaded = false;
 // The last Server URL warned about as plain HTTP to another machine, so a settings re-send doesn't
 // repeat the warning.
-let warnedInsecureUrl: string | null = null;
+const warnedInsecureUrls = new Set<string>();
 const globalSettingsListeners = new Set<() => void>();
 
 /**
@@ -92,13 +92,16 @@ export function migrateGlobalSettings(raw: JsonObject): GlobalSettings {
  * Logs a warning (once per URL) when the Server URL sends the API key over plain HTTP to another
  * machine, e.g. after migrating pre-1.2 `host`/`port` settings, which were always plain HTTP. The
  * property inspector shows the same warning, but only while it's open.
+ * The URL is logged as normalized for requests, so any credentials or query in the setting stay
+ * out of the log.
  * @param serverUrl The Server URL in use.
  */
 function warnIfInsecure(serverUrl: string): void {
-	if (!isPlainHttpToRemote(serverUrl) || serverUrl === warnedInsecureUrl) return;
-	warnedInsecureUrl = serverUrl;
+	const url = normalizeServerUrl(serverUrl);
+	if (!url || !isPlainHttpToRemote(serverUrl) || warnedInsecureUrls.has(url)) return;
+	warnedInsecureUrls.add(url);
 	streamDeck.logger.warn(
-		`Server URL ${serverUrl} uses plain HTTP to another machine, so the API key is sent unencrypted. Use https:// if the bot has it.`,
+		`Server URL ${url} uses plain HTTP to another machine, so the API key is sent unencrypted. Use https:// if the bot has it.`,
 	);
 }
 
