@@ -28,7 +28,8 @@ jobs:
 
   # Publishes the packed plugin as a GitHub Release whenever main carries a manifest version
   # that hasn't been released yet. The bot's web panel links to the latest release's asset, so
-  # bumping "Version" in manifest.json and merging is all a release takes.
+  # bumping "Version" in manifest.json (and "version" in package.json to match) and merging is
+  # all a release takes.
   release:
     needs: check
     if: github.event_name == 'push' && github.ref == 'refs/heads/main'
