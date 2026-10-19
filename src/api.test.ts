@@ -5,7 +5,11 @@ import { streamDeckModuleMock } from "./test-utils/streamdeckMock";
 
 vi.mock("@elgato/streamdeck", () => streamDeckModuleMock());
 
-import { apiRequest, describeNetworkError, isLoopbackHost, migrateGlobalSettings, normalizeServerUrl } from "./api";
+import streamDeck from "@elgato/streamdeck";
+import {
+	apiRequest, describeNetworkError, initGlobalSettings, isLoopbackHost, isPlainHttpToRemote, migrateGlobalSettings,
+	normalizeServerUrl,
+} from "./api";
 
 describe("normalizeServerUrl", () => {
 	it("assumes https for a bare host", () => {
@@ -169,5 +173,57 @@ describe("describeNetworkError", () => {
 	it("falls back to the error itself when there is no cause", () => {
 		expect(describeNetworkError(new TypeError("fetch failed"))).toBe("TypeError: fetch failed");
 		expect(describeNetworkError("boom")).toBe("boom");
+	});
+});
+
+describe("isPlainHttpToRemote", () => {
+	it("flags plain HTTP to another machine, including migrated legacy settings", () => {
+		expect(isPlainHttpToRemote("http://192.168.1.5:3000")).toBe(true);
+		expect(isPlainHttpToRemote(migrateGlobalSettings({ host: "bot.lan" }).serverUrl)).toBe(true);
+	});
+
+	it("allows https, any loopback address, and an unset or invalid URL", () => {
+		expect(isPlainHttpToRemote("https://bot.example.com")).toBe(false);
+		expect(isPlainHttpToRemote("http://127.0.0.2:3000")).toBe(false);
+		expect(isPlainHttpToRemote("http://localhost:3000")).toBe(false);
+		expect(isPlainHttpToRemote("http://[::1]:3000")).toBe(false);
+		expect(isPlainHttpToRemote("")).toBe(false);
+		expect(isPlainHttpToRemote("ftp://bot")).toBe(false);
+	});
+});
+
+describe("initGlobalSettings", () => {
+	it("warns once when the settings send the API key over plain HTTP to another machine", () => {
+		initGlobalSettings();
+		const onSettings = vi.mocked(streamDeck.settings.onDidReceiveGlobalSettings).mock.calls.at(-1)![0] as (
+			ev: { settings: Record<string, unknown> },
+		) => void;
+		vi.mocked(streamDeck.logger.warn).mockClear();
+
+		onSettings({ settings: { host: "bot.lan", port: 3000, apiKey: "k" } });
+		onSettings({ settings: { host: "bot.lan", port: 3000, apiKey: "k" } });
+		expect(streamDeck.logger.warn).toHaveBeenCalledTimes(1);
+		expect(vi.mocked(streamDeck.logger.warn).mock.calls[0]![0]).toContain("http://bot.lan:3000");
+
+		onSettings({ settings: { serverUrl: "https://bot.example.com", apiKey: "k" } });
+		expect(streamDeck.logger.warn).toHaveBeenCalledTimes(1);
+	});
+
+	it("warns once per URL even when switching back, and keeps credentials out of the log", () => {
+		initGlobalSettings();
+		const onSettings = vi.mocked(streamDeck.settings.onDidReceiveGlobalSettings).mock.calls.at(-1)![0] as (
+			ev: { settings: Record<string, unknown> },
+		) => void;
+		vi.mocked(streamDeck.logger.warn).mockClear();
+
+		onSettings({ settings: { serverUrl: "http://user:secret@a.lan:3000/hook/pathsecret?token=t", apiKey: "k" } });
+		onSettings({ settings: { serverUrl: "http://b.lan:3000", apiKey: "k" } });
+		onSettings({ settings: { serverUrl: "http://user:secret@a.lan:3000/hook/pathsecret?token=t", apiKey: "k" } });
+		expect(streamDeck.logger.warn).toHaveBeenCalledTimes(2);
+		const first = vi.mocked(streamDeck.logger.warn).mock.calls[0]![0] as string;
+		expect(first).toContain("http://a.lan:3000");
+		expect(first).not.toContain("secret");
+		expect(first).not.toContain("token");
+		expect(first).not.toContain("pathsecret");
 	});
 });

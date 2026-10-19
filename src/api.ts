@@ -34,6 +34,9 @@ export const QUICK_KEY_PRESS_TIMEOUT_MS = 5_000;
 
 let globalSettings: GlobalSettings = { serverUrl: "", apiKey: "" };
 let globalSettingsLoaded = false;
+// The last Server URL warned about as plain HTTP to another machine, so a settings re-send doesn't
+// repeat the warning.
+const warnedInsecureUrls = new Set<string>();
 const globalSettingsListeners = new Set<() => void>();
 
 /**
@@ -44,6 +47,7 @@ export function initGlobalSettings(): void {
 	streamDeck.settings.onDidReceiveGlobalSettings<JsonObject>((ev) => {
 		globalSettings = migrateGlobalSettings(ev.settings);
 		globalSettingsLoaded = true;
+		warnIfInsecure(globalSettings.serverUrl);
 		for (const listener of globalSettingsListeners) listener();
 	});
 	void streamDeck.settings.getGlobalSettings();
@@ -82,6 +86,35 @@ export function migrateGlobalSettings(raw: JsonObject): GlobalSettings {
 		return { serverUrl: `http://${raw.host.trim()}:${port}`, apiKey };
 	}
 	return { serverUrl: "", apiKey };
+}
+
+/**
+ * Logs a warning (once per URL) when the Server URL sends the API key over plain HTTP to another
+ * machine, e.g. after migrating pre-1.2 `host`/`port` settings, which were always plain HTTP. The
+ * property inspector shows the same warning, but only while it's open.
+ * Only the URL's origin is logged, so credentials, a query or a token in the path stay out of
+ * the log.
+ * @param serverUrl The Server URL in use.
+ */
+function warnIfInsecure(serverUrl: string): void {
+	const url = normalizeServerUrl(serverUrl);
+	if (!url || !isPlainHttpToRemote(serverUrl) || warnedInsecureUrls.has(url)) return;
+	warnedInsecureUrls.add(url);
+	streamDeck.logger.warn(
+		`Server URL ${new URL(url).origin} uses plain HTTP to another machine, so the API key is sent unencrypted. Use https:// if the bot has it.`,
+	);
+}
+
+/**
+ * Whether a Server URL sends requests over plain HTTP to a host other than this machine.
+ * @param serverUrl The Server URL as saved.
+ * @returns True for `http://` to a non-loopback host; false for https, loopback or an invalid URL.
+ */
+export function isPlainHttpToRemote(serverUrl: string): boolean {
+	const baseUrl = normalizeServerUrl(serverUrl);
+	if (!baseUrl) return false;
+	const url = new URL(baseUrl);
+	return url.protocol === "http:" && !isLoopbackHost(url.hostname);
 }
 
 /**
