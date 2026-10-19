@@ -63,7 +63,8 @@ function updateUrlWarning() {
 	const el = document.getElementById("urlWarning");
 	if (!el) return;
 	const url = globals.serverUrl;
-	const insecure = /^http:\/\//i.test(url) && !/^http:\/\/(localhost|127\.0\.0\.1|\[::1\])(:|\/|$)/i.test(url);
+	// Loopback matches the plugin's isLoopbackHost (src/api.ts): localhost, [::1] and all of 127.x.x.x.
+	const insecure = /^http:\/\//i.test(url) && !/^http:\/\/(localhost|127\.\d{1,3}\.\d{1,3}\.\d{1,3}|\[::1\])(:|\/|$)/i.test(url);
 	el.textContent = insecure ? "Plain HTTP sends your API key unencrypted. Use https:// if the bot has it." : "";
 }
 
