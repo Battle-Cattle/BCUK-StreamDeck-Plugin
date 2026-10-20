@@ -6,6 +6,8 @@ export function streamDeckModuleMock() {
 		logger: { info: vi.fn(), warn: vi.fn(), error: vi.fn() },
 		settings: { onDidReceiveGlobalSettings: vi.fn(), getGlobalSettings: vi.fn() },
 		ui: { sendToPropertyInspector: vi.fn() },
+		actions: { registerAction: vi.fn() },
+		connect: vi.fn(() => Promise.resolve()),
 	};
 	return {
 		default: streamDeck,
