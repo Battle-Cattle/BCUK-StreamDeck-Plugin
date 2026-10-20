@@ -23,12 +23,18 @@ type PiToPluginMsg = { event: string; serverUrl: string; apiKey: string };
 export class ToggleCommandAction extends SingletonAction<CommandSettings> {
 	private readonly catalog = createAdvancedCommandCatalog();
 
-	/** Flips the button's advanced command on or off (see `toggleCommand`). */
+	/**
+	 * Flips the button's advanced command on or off (see `toggleCommand`).
+	 * @param ev The key press, carrying the button's saved command id.
+	 */
 	override async onKeyDown(ev: KeyDownEvent<CommandSettings>): Promise<void> {
 		await toggleCommand(ev.action, ev.payload.settings.commandId);
 	}
 
-	/** Shows the command's current state when the key appears (e.g. after switching pages). */
+	/**
+	 * Shows the command's current state when the key appears (e.g. after switching pages).
+	 * @param ev The appearance event, carrying the button's saved command id (missing on a new button).
+	 */
 	override async onWillAppear(ev: WillAppearEvent<CommandSettings>): Promise<void> {
 		if (!("commandId" in ev.payload.settings)) {
 			await ev.action.setSettings({ commandId: "" });
@@ -37,7 +43,10 @@ export class ToggleCommandAction extends SingletonAction<CommandSettings> {
 		if (ev.action.isKey()) await syncToggleState(ev.action, ev.payload.settings.commandId);
 	}
 
-	/** Shows the newly chosen command's state when the property inspector changes it. */
+	/**
+	 * Shows the newly chosen command's state when the property inspector changes it.
+	 * @param ev The settings event, carrying the newly saved command id.
+	 */
 	override async onDidReceiveSettings(ev: DidReceiveSettingsEvent<CommandSettings>): Promise<void> {
 		if (ev.action.isKey()) await syncToggleState(ev.action, ev.payload.settings.commandId);
 	}
@@ -47,7 +56,10 @@ export class ToggleCommandAction extends SingletonAction<CommandSettings> {
 		await this.catalog.show();
 	}
 
-	/** Handles the property inspector's "Refresh Commands" request. */
+	/**
+	 * Handles the property inspector's "Refresh Commands" request.
+	 * @param ev The inspector's message: its event name and the Server URL and API key in its form.
+	 */
 	override async onSendToPlugin(ev: SendToPluginEvent<PiToPluginMsg, CommandSettings>): Promise<void> {
 		if (ev.payload.event === "refreshCommands") {
 			await this.catalog.refresh({ serverUrl: ev.payload.serverUrl, apiKey: ev.payload.apiKey });

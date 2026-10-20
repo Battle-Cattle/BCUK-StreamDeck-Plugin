@@ -15,6 +15,8 @@ export interface AdvancedCommand extends JsonObject {
  * Reduces the bot's `/advanced-commands` listing to the fields the plugin uses, dropping
  * anything malformed.
  * @param raw The `commands` field of the bot's response.
+ * @returns The well-formed commands (positive integer id and non-empty name), or an empty list
+ *   if `raw` isn't an array.
  */
 export function toAdvancedCommands(raw: JsonValue | undefined): AdvancedCommand[] {
 	if (!Array.isArray(raw)) return [];

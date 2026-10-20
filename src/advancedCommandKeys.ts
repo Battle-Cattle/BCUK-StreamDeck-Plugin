@@ -43,7 +43,11 @@ function isCurrent(key: CommandKey, generation: number): boolean {
 	return stateGenerations.get(key.id) === generation;
 }
 
-/** Manifest state index for each enabled state: 0 shows "on", 1 shows "off". */
+/**
+ * Manifest state index for each enabled state: 0 shows "on", 1 shows "off".
+ * @param isEnabled Whether the command is enabled.
+ * @returns 0 when enabled, 1 when disabled.
+ */
 export function stateFor(isEnabled: boolean): 0 | 1 {
 	return isEnabled ? 0 : 1;
 }

@@ -15,6 +15,8 @@ export interface SfxTrigger extends JsonObject {
  * Reduces a trigger listing (from the bot, or legacy per-button settings) to the fields the
  * property inspector uses, dropping anything malformed.
  * @param raw The `triggers` field of the bot's `/sfx` response, or a legacy `cachedTriggers`.
+ * @returns Entries with a non-empty `triggerCommand` (category null when missing), or an empty
+ *   list if `raw` isn't an array.
  */
 export function toSfxTriggers(raw: JsonValue | undefined): SfxTrigger[] {
 	if (!Array.isArray(raw)) return [];
