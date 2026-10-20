@@ -9,7 +9,11 @@ import { dirname } from "node:path";
 const DARK = { r: 45, g: 45, b: 45, alpha: 1 };
 const DARK_RED = { r: 60, g: 20, b: 20, alpha: 1 };
 
-// Speaker icon SVG (white, scalable)
+/**
+ * Speaker icon SVG (white, scalable)
+ * @param {number} size Width and height in pixels.
+ * @returns {Buffer} The SVG.
+ */
 function speakerSvg(size) {
 	const s = size;
 	return Buffer.from(`
@@ -20,7 +24,11 @@ function speakerSvg(size) {
 		</svg>`);
 }
 
-// Headphones icon SVG for join-voice (white, scalable)
+/**
+ * Headphones icon SVG for join-voice (white, scalable)
+ * @param {number} size Width and height in pixels.
+ * @returns {Buffer} The SVG.
+ */
 function headphonesSvg(size) {
 	const s = size;
 	return Buffer.from(`
@@ -31,7 +39,11 @@ function headphonesSvg(size) {
 		</svg>`);
 }
 
-// Headphones with X overlay for leave-voice
+/**
+ * Headphones with X overlay for leave-voice
+ * @param {number} size Width and height in pixels.
+ * @returns {Buffer} The SVG.
+ */
 function leaveVoiceSvg(size) {
 	const s = size;
 	return Buffer.from(`
@@ -44,7 +56,11 @@ function leaveVoiceSvg(size) {
 		</svg>`);
 }
 
-// Speaker with error X overlay
+/**
+ * Speaker with error X overlay
+ * @param {number} size Width and height in pixels.
+ * @returns {Buffer} The SVG.
+ */
 function speakerErrorSvg(size) {
 	const s = size;
 	return Buffer.from(`
@@ -57,7 +73,12 @@ function speakerErrorSvg(size) {
 		</svg>`);
 }
 
-// Lightning bolt for trigger-command / toggle-command (dimmed for the "off" state)
+/**
+ * Lightning bolt for trigger-command / toggle-command (dimmed for the "off" state)
+ * @param {number} size Width and height in pixels.
+ * @param {number} opacity The bolt's opacity.
+ * @returns {Buffer} The SVG.
+ */
 function boltSvg(size, opacity = 0.9) {
 	const s = size;
 	return Buffer.from(`
@@ -67,7 +88,11 @@ function boltSvg(size, opacity = 0.9) {
 		</svg>`);
 }
 
-// BCUK label SVG for marketplace / category icons
+/**
+ * BCUK label SVG for marketplace / category icons
+ * @param {number} size Width and height in pixels.
+ * @returns {Buffer} The SVG.
+ */
 function labelSvg(size) {
 	const fs = Math.round(size * 0.3);
 	return Buffer.from(`
@@ -79,6 +104,13 @@ function labelSvg(size) {
 		</svg>`);
 }
 
+/**
+ * Writes a square PNG of <size> pixels: <svgBuffer> centred on a solid <bg> background.
+ * @param {string} outputPath Where to write the PNG (its folder is created if needed).
+ * @param {number} size Width and height in pixels.
+ * @param {{r: number, g: number, b: number, alpha: number}} bg The background colour.
+ * @param {Buffer} svgBuffer The icon to draw on it.
+ */
 async function makeIcon(outputPath, size, bg, svgBuffer) {
 	mkdirSync(dirname(outputPath), { recursive: true });
 
@@ -96,6 +128,11 @@ async function makeIcon(outputPath, size, bg, svgBuffer) {
 	console.log(`  created  ${outputPath}`);
 }
 
+/**
+ * Writes the "BCUK" label icon as a square PNG of <size> pixels.
+ * @param {string} outputPath Where to write the PNG (its folder is created if needed).
+ * @param {number} size Width and height in pixels.
+ */
 async function makeLabelIcon(outputPath, size) {
 	mkdirSync(dirname(outputPath), { recursive: true });
 	await sharp(labelSvg(size)).png().toFile(outputPath);

@@ -24,7 +24,9 @@ interface LegacyPlaySfxSettings extends PlaySfxSettings {
 	cachedTriggers?: JsonValue;
 }
 
-type PiToPluginMsg = { event: "refreshCommands"; serverUrl: string; apiKey: string };
+// A message from the property inspector. Its payload is whatever JSON the page sent, so the
+// handler checks `event` rather than trusting it to be "refreshCommands".
+type PiToPluginMsg = { event: string; serverUrl: string; apiKey: string };
 
 @action({ UUID: "com.expiredminotaur.bcuk.play" })
 export class PlaySfxAction extends SingletonAction<PlaySfxSettings> {
@@ -61,7 +63,8 @@ export class PlaySfxAction extends SingletonAction<PlaySfxSettings> {
 	 * trigger list into the shared catalog first.
 	 */
 	override async onWillAppear(ev: WillAppearEvent<PlaySfxSettings>): Promise<void> {
-		const settings = ev.payload.settings as LegacyPlaySfxSettings;
+		// A new button's settings are `{}`, so any field may be missing.
+		const settings = ev.payload.settings as Partial<LegacyPlaySfxSettings>;
 		this.catalog.seed(toSfxTriggers(settings.cachedTriggers));
 		// Rewrite settings that have no command field yet (a new button) or still carry the legacy
 		// catalog, so every later event for this button carries only the command. A button that

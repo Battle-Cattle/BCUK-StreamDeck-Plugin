@@ -30,16 +30,25 @@
 
 <script src="pi-common.js"></script>
 <script>
+	/* global selectSaved, setStatus, setButtonSettings, saveGlobal, sendToPlugin */
 	// Per-button settings: the chosen channel and its server. The channel list comes from the plugin.
 	let selected = { channelId: "", guildId: "" };
 	let channels = [];
 	let listLoaded = false;
 
+	/**
+	 * Shows the button's saved channel (pi-common.js calls this when its settings arrive).
+	 * @param {object} s The button's settings.
+	 */
 	function onButtonSettings(s) {
 		selected = { channelId: s.channelId || "", guildId: s.guildId || "" };
 		selectSaved(document.getElementById("channel"), selected.channelId, "Saved channel", listLoaded);
 	}
 
+	/**
+	 * Fills the channel list, or shows why it couldn't be loaded (pi-common.js calls this for each plugin message).
+	 * @param {object} payload The plugin's message.
+	 */
 	function onPluginMessage(payload) {
 		if (payload.event === "channelsLoaded") {
 			channels = payload.channels || [];
@@ -51,7 +60,7 @@
 		document.getElementById("refreshBtn").disabled = false;
 	}
 
-	// Lists channels grouped by server when the key spans more than one.
+	/** Lists channels grouped by server when the key spans more than one. */
 	function populateDropdown() {
 		const sel = document.getElementById("channel");
 		sel.innerHTML = '<option value="">— select a channel —</option>';

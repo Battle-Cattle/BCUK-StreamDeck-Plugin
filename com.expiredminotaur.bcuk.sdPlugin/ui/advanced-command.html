@@ -30,17 +30,26 @@
 
 <script src="pi-common.js"></script>
 <script>
+	/* global selectSaved, setStatus, setButtonSettings, saveGlobal, sendToPlugin */
 	// Shared by Trigger Command and Toggle Command. Per-button settings: just the command's id.
 	// The command list (your own advanced commands, from the bot's /advanced-commands page)
 	// comes from the plugin.
 	let commandId = "";
 	let listLoaded = false;
 
+	/**
+	 * Shows the button's saved command (pi-common.js calls this when its settings arrive).
+	 * @param {object} s The button's settings.
+	 */
 	function onButtonSettings(s) {
 		commandId = s.commandId || "";
 		selectSaved(document.getElementById("command"), commandId, "Saved command", listLoaded);
 	}
 
+	/**
+	 * Fills the command list, or shows why it couldn't be loaded (pi-common.js calls this for each plugin message).
+	 * @param {object} payload The plugin's message.
+	 */
 	function onPluginMessage(payload) {
 		if (payload.event === "commandsLoaded") {
 			populateDropdown(payload.commands || []);
@@ -51,6 +60,10 @@
 		document.getElementById("refreshBtn").disabled = false;
 	}
 
+	/**
+	 * Lists the streamer's advanced commands with their trigger, marking disabled ones, and reselects the saved one.
+	 * @param {Array<{id: number, name: string, trigger?: string, isEnabled: boolean}>} commands The commands from the plugin.
+	 */
 	function populateDropdown(commands) {
 		const sel = document.getElementById("command");
 		sel.innerHTML = '<option value="">— select a command —</option>';

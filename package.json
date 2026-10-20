@@ -9,6 +9,7 @@
     "placeholders": "node scripts/gen-placeholders.js",
     "pack": "streamdeck pack com.expiredminotaur.bcuk.sdPlugin --force",
     "typecheck": "tsc --noEmit",
+    "lint": "eslint .",
     "test": "vitest run"
   },
   "dependencies": {
@@ -16,11 +17,19 @@
   },
   "devDependencies": {
     "@elgato/cli": "^1.10.2",
+    "@eslint/js": "^10.0.1",
     "@tsconfig/node20": "^20.1.10",
     "@types/node": "^20.19.43",
+    "@vitest/eslint-plugin": "^1.6.27",
+    "eslint": "^10.13.0",
+    "eslint-plugin-html": "^8.2.1",
+    "eslint-plugin-jsdoc": "^62.9.0",
+    "eslint-plugin-sonarjs": "^4.2.2",
+    "globals": "^17.13.0",
     "rolldown": "^1.2.14",
     "sharp": "^0.35.5",
     "typescript": "^5.2.2",
+    "typescript-eslint": "^8.72.0",
     "vitest": "^4.1.12"
   },
   "overrides": {

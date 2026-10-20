@@ -3,12 +3,19 @@
 // optional hooks before this file's connect function is called by Stream Deck:
 //   onButtonSettings(settings)  – per-button settings arrived
 //   onPluginMessage(payload)    – the plugin sent a sendToPropertyInspector message
+/* global onButtonSettings, onPluginMessage */
 
 let ws = null;
 let context = null;
 let globals = { serverUrl: "", apiKey: "" };
 
-// Called by Stream Deck once the page has loaded.
+/**
+ * Called by Stream Deck once the page has loaded.
+ * Opens the WebSocket, registers the page and asks for its settings; incoming settings and plugin messages go to the page's hooks.
+ * @param {number} port The port Stream Deck's WebSocket listens on.
+ * @param {string} uuid This property inspector's context.
+ * @param {string} registerEvent The event to register the page with.
+ */
 function connectElgatoStreamDeckSocket(port, uuid, registerEvent) {
 	ws = new WebSocket(`ws://127.0.0.1:${port}`);
 
@@ -33,8 +40,11 @@ function connectElgatoStreamDeckSocket(port, uuid, registerEvent) {
 	};
 }
 
-// Reads stored global settings, turning the pre-1.2 host/port pair into a Server URL so the
-// field shows what the plugin is actually using.
+/**
+ * Reads stored global settings, turning the pre-1.2 host/port pair into a Server URL so the
+ * field shows what the plugin is actually using.
+ * @param {object} s The stored global settings.
+ */
 function applyGlobalSettings(s) {
 	let serverUrl = typeof s.serverUrl === "string" ? s.serverUrl : "";
 	if (!serverUrl && typeof s.host === "string" && s.host) {
@@ -46,8 +56,11 @@ function applyGlobalSettings(s) {
 	updateUrlWarning();
 }
 
-// Saves the form's connection fields as the plugin-wide settings (setGlobalSettings replaces the
-// whole object, so both fields are always sent).
+/**
+ * Saves the form's connection fields as the plugin-wide settings (setGlobalSettings replaces the
+ * whole object, so both fields are always sent).
+ * @returns {{serverUrl: string, apiKey: string}} The saved fields.
+ */
 function saveGlobal() {
 	globals = {
 		serverUrl: document.getElementById("serverUrl").value.trim(),
@@ -58,7 +71,7 @@ function saveGlobal() {
 	return globals;
 }
 
-// Warns when the Server URL would send the API key over plain HTTP to a non-local host.
+/** Warns when the Server URL would send the API key over plain HTTP to a non-local host. */
 function updateUrlWarning() {
 	const el = document.getElementById("urlWarning");
 	if (!el) return;
@@ -67,9 +80,13 @@ function updateUrlWarning() {
 	el.textContent = insecure ? "Plain HTTP sends your API key unencrypted. Use https:// if the bot has it." : "";
 }
 
-// Whether a URL's host is this machine. Matches the plugin's isLoopbackHost (src/api.ts):
-// localhost, [::1] and all of 127.x.x.x. The host is parsed, so user-info such as
-// http://127.0.0.1:x@remote.example can't pass for loopback; an unparseable URL isn't loopback.
+/**
+ * Whether a URL's host is this machine. Matches the plugin's isLoopbackHost (src/api.ts):
+ * localhost, [::1] and all of 127.x.x.x. The host is parsed, so user-info such as
+ * http://127.0.0.1:x@remote.example can't pass for loopback; an unparseable URL isn't loopback.
+ * @param {string} url The Server URL.
+ * @returns {boolean} True for a URL whose host is this machine.
+ */
 function isLoopbackUrl(url) {
 	let host;
 	try {
@@ -80,15 +97,28 @@ function isLoopbackUrl(url) {
 	return host === "localhost" || host === "[::1]" || /^127\.\d{1,3}\.\d{1,3}\.\d{1,3}$/.test(host);
 }
 
+/**
+ * Sends an event for this property inspector to Stream Deck; does nothing until the socket is open.
+ * @param {string} event The Stream Deck event name.
+ * @param {object} payload The event's payload.
+ */
 function send(event, payload) {
 	if (!ws || ws.readyState !== WebSocket.OPEN) return;
 	ws.send(JSON.stringify({ event, context, payload }));
 }
 
+/**
+ * Saves this button's own settings.
+ * @param {object} settings The button's complete settings (they replace what's stored).
+ */
 function setButtonSettings(settings) {
 	send("setSettings", settings);
 }
 
+/**
+ * Sends a message to the plugin (it arrives as the action's onSendToPlugin).
+ * @param {object} payload The message.
+ */
 function sendToPlugin(payload) {
 	send("sendToPlugin", payload);
 }
@@ -114,6 +144,11 @@ function selectSaved(select, value, label, listLoaded) {
 	select.value = value;
 }
 
+/**
+ * Shows a status line under the form; a success message clears itself after 3 seconds.
+ * @param {string} msg The text to show.
+ * @param {boolean} isOk Whether it's a success message (styled green) rather than an error or progress.
+ */
 function setStatus(msg, isOk = false) {
 	const el = document.getElementById("status");
 	el.textContent = msg;

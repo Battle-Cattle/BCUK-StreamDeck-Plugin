@@ -5,7 +5,8 @@
     "module": "ES2022",
     "moduleResolution": "Bundler",
     "noImplicitOverride": true,
+    "noUncheckedIndexedAccess": true,
     "types": ["node"]
   },
-  "include": ["src/**/*.ts", "rolldown.config.ts"]
+  "include": ["src/**/*.ts", "rolldown.config.ts", "vitest.config.ts"]
 }

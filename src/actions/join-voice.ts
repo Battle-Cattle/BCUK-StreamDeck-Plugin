@@ -24,7 +24,9 @@ interface LegacyJoinVoiceSettings extends JoinVoiceSettings {
 	cachedChannels?: JsonValue;
 }
 
-type PiToPluginMsg = { event: "refreshChannels"; serverUrl: string; apiKey: string };
+// A message from the property inspector. Its payload is whatever JSON the page sent, so the
+// handler checks `event` rather than trusting it to be "refreshChannels".
+type PiToPluginMsg = { event: string; serverUrl: string; apiKey: string };
 
 @action({ UUID: "com.expiredminotaur.bcuk.join" })
 export class JoinVoiceAction extends SingletonAction<JoinVoiceSettings> {
@@ -63,7 +65,8 @@ export class JoinVoiceAction extends SingletonAction<JoinVoiceSettings> {
 	 * unconfigured button isn't rewritten every time it appears.
 	 */
 	override async onWillAppear(ev: WillAppearEvent<JoinVoiceSettings>): Promise<void> {
-		const settings = ev.payload.settings as LegacyJoinVoiceSettings;
+		// A new button's settings are `{}`, so any field may be missing.
+		const settings = ev.payload.settings as Partial<LegacyJoinVoiceSettings>;
 		if (!("channelId" in settings) || !("guildId" in settings) || "cachedChannels" in settings) {
 			await ev.action.setSettings({ channelId: settings.channelId ?? "", guildId: settings.guildId ?? "" });
 		}

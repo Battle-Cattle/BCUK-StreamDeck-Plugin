@@ -44,7 +44,7 @@ const globalSettingsListeners = new Set<() => void>();
  * re-sends them whenever a property inspector saves, so the cached copy stays current.
  */
 export function initGlobalSettings(): void {
-	streamDeck.settings.onDidReceiveGlobalSettings<JsonObject>((ev) => {
+	streamDeck.settings.onDidReceiveGlobalSettings((ev) => {
 		globalSettings = migrateGlobalSettings(ev.settings);
 		globalSettingsLoaded = true;
 		warnIfInsecure(globalSettings.serverUrl);
