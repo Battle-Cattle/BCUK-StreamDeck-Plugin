@@ -30,6 +30,7 @@ The plugin talks to the bot's `/api/streamdeck` routes; see `src/web/routes/stre
 npm install
 npm run build        # bundle src/ into com.expiredminotaur.bcuk.sdPlugin/bin
 npm run typecheck    # tsc --noEmit
+npm run lint         # eslint (the same rules as BCUK-Bot-4: JSDoc, promises, complexity)
 npm test             # vitest
 npm run watch        # rebuild on change
 npm run pack         # produce a .streamDeckPlugin installer
@@ -40,6 +41,6 @@ Source lives in `src/` (TypeScript); the plugin bundle (manifest, icons, propert
 
 ## Releases
 
-CI (`.github/workflows/ci.yml`) type-checks, tests and builds every pull request. On `main`, whenever `Version` in `com.expiredminotaur.bcuk.sdPlugin/manifest.json` hasn't been released yet, it packs the plugin and publishes it as a GitHub Release tagged `v<version>` with `com.expiredminotaur.bcuk.streamDeckPlugin` attached.
+CI (`.github/workflows/ci.yml`) type-checks, lints, tests and builds every pull request. On `main`, whenever `Version` in `com.expiredminotaur.bcuk.sdPlugin/manifest.json` hasn't been released yet, it packs the plugin and publishes it as a GitHub Release tagged `v<version>` with `com.expiredminotaur.bcuk.streamDeckPlugin` attached.
 
 To ship an update: bump `Version` in the manifest and `version` in `package.json` to match (`1.2.3.0` ↔ `1.2.3`; `npm version 1.2.3 --no-git-tag-version` updates the lockfile too), then merge. A test fails if the two drift apart. The bot's web panel links to the latest release's download (`https://github.com/Battle-Cattle/BCUK-StreamDeck-Plugin/releases/latest/download/com.expiredminotaur.bcuk.streamDeckPlugin`), so nothing needs updating on the bot's server.

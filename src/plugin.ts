@@ -15,4 +15,6 @@ streamDeck.actions.registerAction(new JoinVoiceAction());
 streamDeck.actions.registerAction(new LeaveVoiceAction());
 streamDeck.actions.registerAction(new TriggerCommandAction());
 streamDeck.actions.registerAction(new ToggleCommandAction());
-streamDeck.connect();
+streamDeck.connect().catch((err: unknown) => {
+	streamDeck.logger.error(`Couldn't connect to Stream Deck: ${err instanceof Error ? err.message : String(err)}`);
+});

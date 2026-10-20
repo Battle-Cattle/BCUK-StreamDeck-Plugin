@@ -15,7 +15,9 @@ interface CommandSettings extends JsonObject {
 	commandId: string;
 }
 
-type PiToPluginMsg = { event: "refreshCommands"; serverUrl: string; apiKey: string };
+// A message from the property inspector. Its payload is whatever JSON the page sent, so the
+// handler checks `event` rather than trusting it to be "refreshCommands".
+type PiToPluginMsg = { event: string; serverUrl: string; apiKey: string };
 
 @action({ UUID: "com.expiredminotaur.bcuk.command-toggle" })
 export class ToggleCommandAction extends SingletonAction<CommandSettings> {
