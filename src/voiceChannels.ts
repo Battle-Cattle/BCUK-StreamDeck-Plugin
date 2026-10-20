@@ -42,7 +42,7 @@ function parseGuild(raw: JsonValue): VoiceChannel[] {
  * @param raw One entry of a guild's `channels` list.
  * @param guildId The id of the guild the channel belongs to.
  * @param guildName The guild's name, or null if the bot didn't send one.
- * @returns The channel tagged with its guild, or an empty list when it lacks a string `id` or `name`.
+ * @returns The channel tagged with its guild, or an empty list when its `id` or `name` is missing, not a string, or empty.
  */
 function parseChannel(raw: JsonValue, guildId: string, guildName: string | null): VoiceChannel[] {
 	const channel = asObject(raw);

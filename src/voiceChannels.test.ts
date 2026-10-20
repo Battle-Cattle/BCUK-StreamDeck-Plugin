@@ -24,6 +24,11 @@ describe("flattenGuildChannels", () => {
 		expect(flattenGuildChannels(guilds)).toEqual([{ id: "51", name: "Ok", guildId: "5", guildName: null }]);
 	});
 
+	it("skips channels with an empty id or name", () => {
+		const guilds = [{ guildId: "6", channels: [{ id: "", name: "Blank id" }, { id: "61", name: "" }, { id: "62", name: "Kept" }] }];
+		expect(flattenGuildChannels(guilds)).toEqual([{ id: "62", name: "Kept", guildId: "6", guildName: null }]);
+	});
+
 	it("returns nothing for a response without a guilds array", () => {
 		expect(flattenGuildChannels(undefined)).toEqual([]);
 	});
