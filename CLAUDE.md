@@ -13,12 +13,12 @@ Guidance for working in this repo.
 
 ## Node/npm version
 
-CI (`.github/workflows/ci.yml`) uses Node `20.x`. `sharp` (used by `npm run placeholders`) needs Node 20.9 or later. A newer Node also works for `npm ci`/`npm test`. If `npm ci` fails with lockfile errors, check `node -v`/`npm -v` before changing the lockfile.
+CI (`.github/workflows/ci.yml`) uses Node `20.x`, the version Stream Deck runs the plugin on (`Nodejs.Version` in the manifest). ESLint needs Node 20.19 or later, and `sharp` (used by `npm run placeholders`) 20.9 or later. A newer Node also works locally. Don't pick a dev dependency whose `engines` drops Node 20: that's why `eslint-plugin-jsdoc` stays on 62.x, where BCUK-Bot-4 (on Node 24) uses 65.x. If `npm ci` fails with lockfile errors, check `node -v`/`npm -v` before changing the lockfile.
 
 ## ALWAYS: Before committing
 
 ```bash
-npm run typecheck && npm test && npm run build
+npm run typecheck && npm run lint && npm test && npm run build
 ```
 
 When a release is part of the change, bump `Version` in `manifest.json` and `version` in `package.json` together (`npm version X.Y.Z --no-git-tag-version`). `version.test.ts` fails if they drift apart.
@@ -29,28 +29,35 @@ When a release is part of the change, bump `Version` in `manifest.json` and `ver
 
 These match `BCUK-Bot-4`'s `CLAUDE.md`, so every BCUK repo follows the same rules.
 
+### Lint
+
+`eslint.config.js` is a port of BCUK-Bot-4's config; keep the two in step when a shared rule changes. Everything below marked as a rule is enforced there, in `src/`, the property inspector's scripts (including the inline `<script>`s, via `eslint-plugin-html`) and `scripts/`. Its errors aren't optional: fix the code, don't disable the rule.
+
 ### TypeScript
 
-- `strict` is on, from `@tsconfig/node20`. Don't add `any` (use `unknown` and narrow it). Don't use `!` unless a nearby check guarantees the value, and add a comment that names the check.
-- Handle every promise: `await` it, return it, or mark it `void` where fire-and-forget is intended (as `initGlobalSettings` does with `getGlobalSettings()`). An unhandled rejection in a key handler leaves the key with no alert.
-- Log with `streamDeck.logger`, not `console.*`.
+- `strict` and `noUncheckedIndexedAccess` are on (`items[0]` is `T | undefined`: guard it). Don't add `any` (use `unknown` and narrow it). Don't use `!` unless a nearby check guarantees the value, and add a comment that names the check.
+- Type what can actually arrive. A property inspector message or a new button's settings are whatever JSON Stream Deck delivers, so type them that loosely (e.g. `Partial<…>` for settings that may be `{}`) rather than as the ideal shape. `@typescript-eslint/no-unnecessary-condition` flags a guard that the types say is always true.
+- Handle every promise: `await` it, return it, or mark it `void` where fire-and-forget is intended (as `initGlobalSettings` does with `getGlobalSettings()`). An unhandled rejection in a key handler leaves the key with no alert. (Rule: `no-floating-promises`.)
+- Log with `streamDeck.logger`, not `console.*`. (Rule: `no-console`; `rolldown.config.ts` is the exception.)
 - Never log the API key or a full Server URL. Log only the URL's origin, as the plain-HTTP warning in `api.ts` does.
 
 ### Complexity
 
-Qlty reports function complexity, too many returns, deep nesting, long parameter lists and duplication (see PR Reviews (Qlty) below). Write code that stays under the limits from the start: cognitive complexity ≤ 15, cyclomatic complexity ≤ 12, at most 5 parameters, nesting depth ≤ 3. These are the same limits `BCUK-Bot-4` enforces with ESLint. When a function grows past them, extract helpers or a module.
+Qlty reports function complexity, too many returns, deep nesting, long parameter lists and duplication (see PR Reviews (Qlty) below). ESLint enforces the same limits locally, as in `BCUK-Bot-4`: cognitive complexity ≤ 15, cyclomatic complexity ≤ 12, at most 5 parameters, nesting depth ≤ 3. When a function grows past them, extract helpers or a module.
 
 ### Tests
 
 - Every new function or behaviour change **must** include or update a Vitest test in a co-located `*.test.ts` file next to the source file.
 - When modifying existing behaviour, update affected tests before committing. Never leave a passing-but-wrong test.
 - A fix for a bug or a review finding gets a test that fails without the fix.
-- Mock `@elgato/streamdeck` with `src/test-utils/streamdeckMock.ts` rather than writing a new mock in each file.
+- Mock `@elgato/streamdeck` with `src/test-utils/streamdeckMock.ts` rather than writing a new mock in each file. For an action class, `src/test-utils/actionMocks.ts` has a fake `ev.action` and event (see `src/actions/*.test.ts`).
+- `vitest.config.ts` lowers the `@action` decorators the same way `rolldown.config.ts` does. Change both together.
 - Run `npm test` and confirm all tests pass before committing.
 
 ### Docstrings
 
-- All functions **must** have a JSDoc comment describing what they do, their parameters and return value. This covers exported functions, internal helpers, class methods and module-level arrow functions. One line is enough for simple cases. Exported types, interfaces and constants get one too. The property-inspector scripts in `ui/` follow the same rule (they currently use `//` comments; use `/** */` for new or changed functions).
+- All functions **must** have a JSDoc comment describing what they do, their parameters and return value. This covers exported functions, internal helpers, class methods and module-level arrow functions. One line is enough for simple cases. Exported types, interfaces and constants get one too. The property-inspector scripts in `ui/` and `scripts/` follow the same rule; being plain JavaScript, their JSDoc may carry types. (Rule: `jsdoc/require-jsdoc`, plus `jsdoc/check-param-names` for stale `@param`s.)
+- In the property inspector, a name one script uses from another (pi-common.js's helpers, a page's `onButtonSettings`/`onPluginMessage`) goes in a `/* global … */` header at the top of the script that uses it.
 - When you change a function's signature or behaviour, update its JSDoc to match. Stale docs are worse than no docs.
 - **Test files (`*.test.ts`) are exempt.** Test-local helpers and `describe`/`it`/`vi.mock` callbacks don't need JSDoc. A descriptive `it('...')` name documents the behaviour instead. Source files still follow the rule above.
 - **Concise inline callbacks** (`.map()` mappers, event listeners wired inline, a `setTimeout` callback, a `catch` handler) don't need a separate JSDoc block. Add a short inline comment only when the behaviour isn't obvious from the code.
