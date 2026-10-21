@@ -40,7 +40,10 @@ export class PlaySfxAction extends SingletonAction<PlaySfxSettings> {
 		listKey: "triggers",
 	});
 
-	/** Plays the button's configured command on the bot, showing OK or an alert on the key. */
+	/**
+	 * Plays the button's configured command on the bot, showing OK or an alert on the key.
+	 * @param ev The key press, carrying the button's chosen SFX command.
+	 */
 	override async onKeyDown(ev: KeyDownEvent<PlaySfxSettings>): Promise<void> {
 		const { command } = ev.payload.settings;
 		if (!command) {
@@ -61,6 +64,7 @@ export class PlaySfxAction extends SingletonAction<PlaySfxSettings> {
 	/**
 	 * Migrates a button's settings to hold only its command, folding any legacy per-button
 	 * trigger list into the shared catalog first.
+	 * @param ev The appearance event, carrying the button's saved (possibly empty or legacy) settings.
 	 */
 	override async onWillAppear(ev: WillAppearEvent<PlaySfxSettings>): Promise<void> {
 		// A new button's settings are `{}`, so any field may be missing.
@@ -79,7 +83,10 @@ export class PlaySfxAction extends SingletonAction<PlaySfxSettings> {
 		await this.catalog.show();
 	}
 
-	/** Handles the property inspector's "Refresh Commands" request. */
+	/**
+	 * Handles the property inspector's "Refresh Commands" request.
+	 * @param ev The inspector's message: its event name and the Server URL and API key in its form.
+	 */
 	override async onSendToPlugin(ev: SendToPluginEvent<PiToPluginMsg, PlaySfxSettings>): Promise<void> {
 		if (ev.payload.event === "refreshCommands") {
 			await this.catalog.refresh({ serverUrl: ev.payload.serverUrl, apiKey: ev.payload.apiKey });

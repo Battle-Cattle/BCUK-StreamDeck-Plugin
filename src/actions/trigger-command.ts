@@ -24,12 +24,18 @@ type PiToPluginMsg = { event: string; serverUrl: string; apiKey: string };
 export class TriggerCommandAction extends SingletonAction<CommandSettings> {
 	private readonly catalog = createAdvancedCommandCatalog();
 
-	/** Fires the button's advanced command on the bot for free (see `triggerCommand`). */
+	/**
+	 * Fires the button's advanced command on the bot for free (see `triggerCommand`).
+	 * @param ev The key press, carrying the button's saved command id.
+	 */
 	override async onKeyDown(ev: KeyDownEvent<CommandSettings>): Promise<void> {
 		await triggerCommand(ev.action, ev.payload.settings.commandId);
 	}
 
-	/** Gives a new button an empty command setting, so later events carry the expected shape. */
+	/**
+	 * Gives a new button an empty command setting, so later events carry the expected shape.
+	 * @param ev The appearance event, carrying the button's saved settings (`{}` on a new button).
+	 */
 	override async onWillAppear(ev: WillAppearEvent<CommandSettings>): Promise<void> {
 		if (!("commandId" in ev.payload.settings)) {
 			await ev.action.setSettings({ commandId: "" });
@@ -41,7 +47,10 @@ export class TriggerCommandAction extends SingletonAction<CommandSettings> {
 		await this.catalog.show();
 	}
 
-	/** Handles the property inspector's "Refresh Commands" request. */
+	/**
+	 * Handles the property inspector's "Refresh Commands" request.
+	 * @param ev The inspector's message: its event name and the Server URL and API key in its form.
+	 */
 	override async onSendToPlugin(ev: SendToPluginEvent<PiToPluginMsg, CommandSettings>): Promise<void> {
 		if (ev.payload.event === "refreshCommands") {
 			await this.catalog.refresh({ serverUrl: ev.payload.serverUrl, apiKey: ev.payload.apiKey });

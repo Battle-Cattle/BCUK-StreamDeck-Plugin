@@ -57,6 +57,7 @@ export class InspectorCatalog<T extends JsonValue> {
 	/**
 	 * Adds entries from legacy per-button settings that aren't already in the list (matched by
 	 * `key`). Each legacy button carried its own snapshot, so later buttons can add entries.
+	 * @param items Entries parsed from one button's legacy settings.
 	 */
 	seed(items: T[]): void {
 		// A list fetched from the bot is authoritative; legacy lists on buttons that appear later
@@ -125,13 +126,20 @@ export class InspectorCatalog<T extends JsonValue> {
 		await this.send({ event: loadedEvent, [listKey]: this.items });
 	}
 
-	/** Sends a message to the property inspector that's currently open. */
+	/**
+	 * Sends a message to the property inspector that's currently open.
+	 * @param message The JSON message, e.g. the loaded or error event with its list or error text.
+	 */
 	private async send(message: JsonObject): Promise<void> {
 		await streamDeck.ui.sendToPropertyInspector(message);
 	}
 }
 
-/** Identifies the bot and key a list was fetched with. */
+/**
+ * Identifies the bot and key a list was fetched with.
+ * @param conn Server URL and API key.
+ * @returns The Server URL and API key joined by a newline, for equality checks.
+ */
 function connectionId(conn: Connection): string {
 	return `${conn.serverUrl}\n${conn.apiKey}`;
 }

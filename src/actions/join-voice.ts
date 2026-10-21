@@ -40,7 +40,10 @@ export class JoinVoiceAction extends SingletonAction<JoinVoiceSettings> {
 		listKey: "channels",
 	});
 
-	/** Tells the bot to join the button's configured channel, showing OK or an alert. */
+	/**
+	 * Tells the bot to join the button's configured channel, showing OK or an alert.
+	 * @param ev The key press, carrying the button's chosen channel and guild.
+	 */
 	override async onKeyDown(ev: KeyDownEvent<JoinVoiceSettings>): Promise<void> {
 		const { channelId, guildId } = ev.payload.settings;
 		if (!channelId) {
@@ -63,6 +66,7 @@ export class JoinVoiceAction extends SingletonAction<JoinVoiceSettings> {
 	 * Migrates a button's settings to hold only its channel and server, dropping legacy lists.
 	 * Settings already in that shape (even with no channel chosen yet) are left alone, so an
 	 * unconfigured button isn't rewritten every time it appears.
+	 * @param ev The appearance event, carrying the button's saved (possibly empty or legacy) settings.
 	 */
 	override async onWillAppear(ev: WillAppearEvent<JoinVoiceSettings>): Promise<void> {
 		// A new button's settings are `{}`, so any field may be missing.
@@ -77,7 +81,10 @@ export class JoinVoiceAction extends SingletonAction<JoinVoiceSettings> {
 		await this.catalog.show();
 	}
 
-	/** Handles the property inspector's "Refresh Channels" request. */
+	/**
+	 * Handles the property inspector's "Refresh Channels" request.
+	 * @param ev The inspector's message: its event name and the Server URL and API key in its form.
+	 */
 	override async onSendToPlugin(ev: SendToPluginEvent<PiToPluginMsg, JoinVoiceSettings>): Promise<void> {
 		if (ev.payload.event === "refreshChannels") {
 			await this.catalog.refresh({ serverUrl: ev.payload.serverUrl, apiKey: ev.payload.apiKey });

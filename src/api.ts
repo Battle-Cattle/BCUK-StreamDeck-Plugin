@@ -53,7 +53,10 @@ export function initGlobalSettings(): void {
 	void streamDeck.settings.getGlobalSettings();
 }
 
-/** Whether the global settings have been received from Stream Deck yet. */
+/**
+ * Whether the global settings have been received from Stream Deck yet.
+ * @returns True once the first global-settings delivery has arrived.
+ */
 export function hasGlobalSettings(): boolean {
 	return globalSettingsLoaded;
 }
@@ -66,7 +69,10 @@ export function onGlobalSettingsChanged(listener: () => void): void {
 	globalSettingsListeners.add(listener);
 }
 
-/** The current connection details from the global settings. */
+/**
+ * The current connection details from the global settings.
+ * @returns The saved Server URL and API key (empty strings until they're set or received).
+ */
 export function getConnection(): Connection {
 	return { serverUrl: globalSettings.serverUrl, apiKey: globalSettings.apiKey };
 }
@@ -75,6 +81,8 @@ export function getConnection(): Connection {
  * Reads raw global settings, falling back to the legacy `host`/`port` pair (always plain HTTP,
  * as the old plugin did) when no `serverUrl` has been saved yet.
  * @param raw Settings as stored by Stream Deck.
+ * @returns The trimmed Server URL (or one built from `host`/`port`, or empty) and the API key
+ *   (empty if unset).
  */
 export function migrateGlobalSettings(raw: JsonObject): GlobalSettings {
 	const apiKey = typeof raw.apiKey === "string" ? raw.apiKey : "";
@@ -144,6 +152,7 @@ export function normalizeServerUrl(input: string): string | null {
  * The scheme to assume for a Server URL typed without one: `http` for a loopback host,
  * `https` for anything else.
  * @param schemeless The Server URL as typed, without a scheme.
+ * @returns `http` for a loopback host, otherwise `https` (including when the host can't be parsed).
  */
 function defaultScheme(schemeless: string): "http" | "https" {
 	let host: string;
@@ -159,6 +168,7 @@ function defaultScheme(schemeless: string): "http" | "https" {
  * Whether a hostname is loopback (`localhost`, `127.x.x.x`, `[::1]`), so plain HTTP to it never
  * leaves the machine.
  * @param host A URL hostname.
+ * @returns True for `localhost`, `[::1]` or a `127.x.x.x` address.
  */
 export function isLoopbackHost(host: string): boolean {
 	return host === "localhost" || host === "[::1]" || /^127\.\d{1,3}\.\d{1,3}\.\d{1,3}$/.test(host);
@@ -222,6 +232,8 @@ export function describeNetworkError(err: unknown): string {
  * @param conn Server URL and API key to use.
  * @param path Path under `/api/streamdeck`.
  * @param body JSON body to POST; omit for a GET.
+ * @returns The full URL and fetch options carrying the Bearer key, or a failure (null status)
+ *   when the Server URL is invalid or the API key is missing.
  */
 function buildRequest(conn: Connection, path: string, body?: JsonObject): { url: string; init: RequestInit } | ApiFailure {
 	const baseUrl = normalizeServerUrl(conn.serverUrl);
@@ -242,6 +254,8 @@ function buildRequest(conn: Connection, path: string, body?: JsonObject): { url:
  * @param status HTTP status.
  * @param ok Whether the status is 2xx.
  * @param text The response body.
+ * @returns The parsed body on a 2xx JSON response, otherwise a failure with the status and
+ *   error text.
  */
 function toResult<T>(status: number, ok: boolean, text: string): ApiResult<T> {
 	const parsed = parseJson(text);
@@ -252,7 +266,11 @@ function toResult<T>(status: number, ok: boolean, text: string): ApiResult<T> {
 	return { ok: true, data: parsed as T };
 }
 
-/** Parses `text` as JSON, or returns undefined if it isn't. */
+/**
+ * Parses `text` as JSON, or returns undefined if it isn't.
+ * @param text The raw response body.
+ * @returns The parsed value, or undefined when `text` isn't valid JSON.
+ */
 function parseJson(text: string): unknown {
 	try {
 		return JSON.parse(text);
@@ -265,6 +283,8 @@ function parseJson(text: string): unknown {
  * The bot's own `error` text when the body carries one, else a generic message for the status.
  * @param status HTTP status of a failed response.
  * @param body The parsed response body, if it was JSON.
+ * @returns The body's `error` string, else a message for 401, 403 or 429, else
+ *   `Server returned <status>`.
  */
 function errorMessage(status: number, body: unknown): string {
 	if (body && typeof body === "object" && "error" in body && typeof body.error === "string") {

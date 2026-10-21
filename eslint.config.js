@@ -27,6 +27,12 @@ const jsdocRules = {
 			"Program > ExportNamedDeclaration > VariableDeclaration > VariableDeclarator > FunctionExpression",
 		],
 	}],
+	// Each parameter and the return value get a described tag; a destructured parameter needs
+	// only its root @param.
+	"jsdoc/require-param": ["error", { checkDestructured: false }],
+	"jsdoc/require-param-description": "error",
+	"jsdoc/require-returns": "error",
+	"jsdoc/require-returns-description": "error",
 	"jsdoc/check-param-names": ["error", { checkDestructured: false }],
 	"jsdoc/check-tag-names": "error",
 };

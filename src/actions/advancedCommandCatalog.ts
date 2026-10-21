@@ -4,6 +4,7 @@ import { InspectorCatalog } from "../inspectorCatalog";
 /**
  * Builds the dropdown catalog shared in shape by Trigger Command and Toggle Command (each action
  * keeps its own instance, like every other action).
+ * @returns A new catalog that fetches `/advanced-commands` and fills the inspector's `commands` list.
  */
 export function createAdvancedCommandCatalog(): InspectorCatalog<AdvancedCommand> {
 	return new InspectorCatalog<AdvancedCommand>({
