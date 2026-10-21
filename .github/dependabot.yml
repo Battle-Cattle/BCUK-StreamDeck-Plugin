@@ -9,15 +9,16 @@ updates:
       interval: "weekly"
     open-pull-requests-limit: 10
     groups:
-      # Minor and patch bumps arrive as one PR, so CodeRabbit's hourly review limit isn't spent on each.
-      npm-minor-and-patch:
-        update-types:
-          - "minor"
-          - "patch"
       vitest:
         patterns:
           - "vitest"
           - "@vitest/*"
+      # Minor and patch bumps arrive as one PR, so CodeRabbit's hourly review limit isn't spent on each.
+      # An update joins the first group it matches, so this catch-all stays last.
+      npm-minor-and-patch:
+        update-types:
+          - "minor"
+          - "patch"
     ignore:
       # Stream Deck runs the plugin on Node 20 (see CLAUDE.md "Node/npm version"). These follow
       # Node 20's types/config, and eslint-plugin-jsdoc 63+ drops Node 20, so their majors are
