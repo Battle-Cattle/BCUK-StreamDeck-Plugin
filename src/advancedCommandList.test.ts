@@ -11,10 +11,17 @@ vi.mock("./api", () => ({
 
 import { apiRequest, getConnection } from "./api";
 import { ADVANCED_COMMAND_LIST_TTL_MS, fetchAdvancedCommandList, invalidateAdvancedCommandList } from "./advancedCommandList";
-import { syncToggleState } from "./advancedCommandKeys";
+import { syncToggleState, toggleCommand } from "./advancedCommandKeys";
 
 const connection = { serverUrl: "https://bot.example", apiKey: "k" };
 const list = { ok: true, data: { commands: [{ id: 7, name: "Hydrate", isEnabled: true }] } } as const;
+
+/** An apiRequest result that resolves only when `resolve` is called. */
+function deferred<T>() {
+	let resolve!: (value: T) => void;
+	const promise = new Promise<T>((r) => { resolve = r; });
+	return { promise, resolve };
+}
 
 let keyCount = 0;
 function key() {
@@ -96,5 +103,63 @@ describe("fetchAdvancedCommandList", () => {
 		await syncToggleState(key(), "7");
 
 		expect(apiRequest).toHaveBeenCalledWith({ serverUrl: "https://new.example", apiKey: "k2" }, "/advanced-commands", undefined, 5000);
+	});
+
+	it("joins a request that is still in flight, however long it has taken", async () => {
+		const slow = deferred<unknown>();
+		vi.mocked(apiRequest).mockReturnValueOnce(slow.promise as never);
+
+		const first = fetchAdvancedCommandList(connection);
+		vi.advanceTimersByTime(ADVANCED_COMMAND_LIST_TTL_MS + 1_000);
+		const second = fetchAdvancedCommandList(connection);
+		slow.resolve(list);
+
+		expect(await first).toEqual(list);
+		expect(await second).toEqual(list);
+		expect(apiRequest).toHaveBeenCalledTimes(1);
+	});
+
+	it("starts the reuse window when the list arrives, not when it was requested", async () => {
+		const slow = deferred<unknown>();
+		vi.mocked(apiRequest).mockReturnValueOnce(slow.promise as never).mockResolvedValue(list);
+
+		const first = fetchAdvancedCommandList(connection);
+		vi.advanceTimersByTime(ADVANCED_COMMAND_LIST_TTL_MS + 1_000);
+		slow.resolve(list);
+		await first;
+		await fetchAdvancedCommandList(connection);
+
+		expect(apiRequest).toHaveBeenCalledTimes(1);
+	});
+
+	it("fetches again when a toggle press invalidated the list while a fetch was waiting", async () => {
+		const stale = deferred<unknown>();
+		const fresh = { ok: true, data: { commands: [{ id: 7, name: "Hydrate", isEnabled: false }] } } as const;
+		vi.mocked(apiRequest).mockReturnValueOnce(stale.promise as never).mockResolvedValueOnce(fresh);
+
+		const pending = fetchAdvancedCommandList(connection);
+		invalidateAdvancedCommandList();
+		stale.resolve(list);
+
+		expect(await pending).toEqual(fresh);
+		expect(apiRequest).toHaveBeenCalledTimes(2);
+	});
+
+	it("shows a press's new state on another key showing the same command", async () => {
+		const stale = deferred<unknown>();
+		vi.mocked(apiRequest)
+			.mockReturnValueOnce(stale.promise as never) // the other key's sync, sent before the press
+			.mockResolvedValueOnce({ ok: true, data: { isEnabled: false } }) // the press
+			.mockResolvedValueOnce({ ok: true, data: { commands: [{ id: 7, name: "Hydrate", isEnabled: false }] } });
+		const pressed = key();
+		const other = key();
+
+		const sync = syncToggleState(other, "7");
+		await toggleCommand(pressed, "7");
+		stale.resolve(list); // still says enabled
+		await sync;
+
+		expect(other.setState).toHaveBeenCalledTimes(1);
+		expect(other.setState).toHaveBeenCalledWith(1);
 	});
 });
