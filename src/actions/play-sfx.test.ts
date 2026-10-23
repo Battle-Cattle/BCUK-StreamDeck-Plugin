@@ -3,23 +3,9 @@ import { streamDeckModuleMock } from "../test-utils/streamdeckMock";
 import { type CatalogSpy, fakeAction, fakeEvent } from "../test-utils/actionMocks";
 
 vi.mock("@elgato/streamdeck", () => streamDeckModuleMock());
-vi.mock("../api", () => ({
-	apiRequest: vi.fn(),
-	getConnection: vi.fn(() => ({ serverUrl: "https://bot.example", apiKey: "k" })),
-	logFailure: vi.fn(),
-	QUICK_KEY_PRESS_TIMEOUT_MS: 5000,
-}));
+vi.mock("../api", async () => (await import("../test-utils/actionMocks")).apiModuleMock());
 const catalogs = vi.hoisted(() => ({ instances: [] as CatalogSpy[] }));
-vi.mock("../inspectorCatalog", () => ({
-	InspectorCatalog: class {
-		show = vi.fn();
-		refresh = vi.fn();
-		seed = vi.fn();
-		constructor() {
-			catalogs.instances.push(this);
-		}
-	},
-}));
+vi.mock("../inspectorCatalog", async () => (await import("../test-utils/actionMocks")).inspectorCatalogModuleMock(catalogs.instances));
 
 import { apiRequest, logFailure } from "../api";
 import { PlaySfxAction } from "./play-sfx";
