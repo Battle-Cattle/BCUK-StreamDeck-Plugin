@@ -24,6 +24,10 @@ updates:
       # on 24 to match the runtime: 25+ describe APIs that Node 24 doesn't have.
       - dependency-name: "@types/node"
         update-types: ["version-update:semver-major"]
+      # typescript-eslint 8 peers on typescript <6.1.0, so npm ci can't install TypeScript 7.
+      # Remove this once typescript-eslint supports 7.
+      - dependency-name: "typescript"
+        versions: [">=7"]
 
   - package-ecosystem: "github-actions"
     directory: "/"
