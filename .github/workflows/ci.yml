@@ -11,6 +11,11 @@ permissions:
 jobs:
   check:
     runs-on: ubuntu-latest
+    # A new push to a pull request cancels that PR's run still in progress. A push to main gets a
+    # group of its own commit, so no merged commit's check is cancelled or skipped.
+    concurrency:
+      group: ci-${{ github.event_name == 'pull_request' && github.ref || github.sha }}
+      cancel-in-progress: ${{ github.event_name == 'pull_request' }}
     steps:
       - uses: actions/checkout@v7
         with:
@@ -26,6 +31,15 @@ jobs:
       - run: npm run build
       - name: Validate the plugin package
         run: npx streamdeck pack com.expiredminotaur.bcuk.sdPlugin --dry-run --no-update-check
+      # The release job packs exactly this build instead of rebuilding.
+      - name: Keep the build for the release job
+        if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+        uses: actions/upload-artifact@v7
+        with:
+          name: plugin-bin
+          path: com.expiredminotaur.bcuk.sdPlugin/bin
+          if-no-files-found: error
+          retention-days: 1
 
   # Publishes the packed plugin as a GitHub Release whenever main carries a manifest version
   # that hasn't been released yet. The bot's web panel links to the latest release's asset, so
@@ -80,10 +94,15 @@ jobs:
             fi
           fi
           echo "released=false" >> "$GITHUB_OUTPUT"
+      # npm ci only for the Stream Deck CLI that packs the plugin; the build itself comes from check.
       - if: steps.existing.outputs.released == 'false'
         run: npm ci
-      - if: steps.existing.outputs.released == 'false'
-        run: npm run build
+      - name: Use the build check made
+        if: steps.existing.outputs.released == 'false'
+        uses: actions/download-artifact@v8
+        with:
+          name: plugin-bin
+          path: com.expiredminotaur.bcuk.sdPlugin/bin
       - name: Pack the plugin
         if: steps.existing.outputs.released == 'false'
         run: npx streamdeck pack com.expiredminotaur.bcuk.sdPlugin --force --no-update-check -o dist
