@@ -94,7 +94,13 @@ function loadPage(ids: string[]) {
 	});
 	runInContext(source, context);
 	runInContext("ws = { readyState: 1, send: (m) => sentMessages.push(JSON.parse(m)) };", Object.assign(context, { sentMessages: sent }));
-	return { pi: context as unknown as CatalogPage, elements, sent };
+	// Looks up one of the page's elements, failing the test if the page wasn't given that id.
+	const el = (id: string): FakeElement => {
+		const element = elements[id];
+		if (!element) throw new Error(`The test page has no #${id}`);
+		return element;
+	};
+	return { pi: context as unknown as CatalogPage, el, sent };
 }
 
 const catalogOptions = (render = vi.fn(), onLoaded = vi.fn()) => ({
@@ -113,60 +119,62 @@ describe("setupCatalogPage", () => {
 	const ids = ["command", "refreshBtn", "status", "serverUrl", "apiKey", "urlWarning"];
 
 	it("fills the dropdown after the placeholder on the loaded message, then re-enables refresh", () => {
-		const { pi, elements } = loadPage(ids);
+		const { pi, el } = loadPage(ids);
 		const render = vi.fn();
 		const onLoaded = vi.fn();
 		const page = pi.setupCatalogPage(catalogOptions(render, onLoaded));
-		elements.refreshBtn!.disabled = true;
+		el("refreshBtn").disabled = true;
 
 		pi.handlePluginMessage({ event: "commandsLoaded", commands: [{ id: 1 }] });
 
-		expect(elements.command!.children.map((c) => c.textContent)).toEqual(["— select a command —"]);
-		expect(render).toHaveBeenCalledWith(elements.command, [{ id: 1 }]);
+		expect(el("command").children.map((c) => c.textContent)).toEqual(["— select a command —"]);
+		expect(render).toHaveBeenCalledWith(el("command"), [{ id: 1 }]);
 		expect(onLoaded).toHaveBeenCalled();
 		expect(page.isLoaded()).toBe(true);
-		expect(elements.status!.textContent).toBe("Commands loaded.");
-		expect(elements.refreshBtn!.disabled).toBe(false);
+		expect(el("status").textContent).toBe("Commands loaded.");
+		expect(el("refreshBtn").disabled).toBe(false);
 	});
 
 	it("shows the error message and re-enables refresh without loading anything", () => {
-		const { pi, elements } = loadPage(ids);
+		const { pi, el } = loadPage(ids);
 		const render = vi.fn();
 		const page = pi.setupCatalogPage(catalogOptions(render));
-		elements.refreshBtn!.disabled = true;
+		el("refreshBtn").disabled = true;
 
 		pi.handlePluginMessage({ event: "commandsError", error: "Invalid API key" });
 
-		expect(elements.status!.textContent).toBe("Error: Invalid API key");
+		expect(el("status").textContent).toBe("Error: Invalid API key");
 		expect(render).not.toHaveBeenCalled();
 		expect(page.isLoaded()).toBe(false);
-		expect(elements.refreshBtn!.disabled).toBe(false);
+		expect(el("refreshBtn").disabled).toBe(false);
 	});
 
 	it("ignores another page's messages", () => {
-		const { pi, elements } = loadPage(ids);
+		const { pi, el } = loadPage(ids);
 		const render = vi.fn();
 		pi.setupCatalogPage(catalogOptions(render));
-		elements.refreshBtn!.disabled = true;
+		el("refreshBtn").disabled = true;
 
 		pi.handlePluginMessage({ event: "channelsLoaded", channels: [] });
 
 		expect(render).not.toHaveBeenCalled();
-		expect(elements.refreshBtn!.disabled).toBe(true);
+		expect(el("refreshBtn").disabled).toBe(true);
 	});
 
 	it("saves the form's connection and asks the plugin to refetch with it when refresh is clicked", () => {
-		const { pi, elements, sent } = loadPage(ids);
+		const { pi, el, sent } = loadPage(ids);
 		pi.setupCatalogPage(catalogOptions());
-		elements.serverUrl!.value = " https://bot.example ";
-		elements.apiKey!.value = "k";
+		el("serverUrl").value = " https://bot.example ";
+		el("apiKey").value = "k";
 
-		elements.refreshBtn!.listeners.click!();
+		const click = el("refreshBtn").listeners.click;
+		expect(click).toBeDefined();
+		click?.();
 
-		expect(elements.refreshBtn!.disabled).toBe(true);
-		expect(elements.status!.textContent).toBe("Fetching commands…");
+		expect(el("refreshBtn").disabled).toBe(true);
+		expect(el("status").textContent).toBe("Fetching commands…");
 		expect(sent.map((m) => m.event)).toEqual(["setGlobalSettings", "sendToPlugin"]);
-		expect({ ...sent[1]!.payload as object }).toEqual({ event: "refreshCommands", serverUrl: "https://bot.example", apiKey: "k" });
+		expect({ ...sent[1]?.payload as object }).toEqual({ event: "refreshCommands", serverUrl: "https://bot.example", apiKey: "k" });
 	});
 });
 
