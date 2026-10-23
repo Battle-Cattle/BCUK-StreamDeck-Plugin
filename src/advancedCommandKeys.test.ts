@@ -2,12 +2,7 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 import { streamDeckModuleMock } from "./test-utils/streamdeckMock";
 
 vi.mock("@elgato/streamdeck", () => streamDeckModuleMock());
-vi.mock("./api", () => ({
-	apiRequest: vi.fn(),
-	getConnection: vi.fn(() => ({ serverUrl: "https://bot.example", apiKey: "k" })),
-	logFailure: vi.fn(),
-	QUICK_KEY_PRESS_TIMEOUT_MS: 5000,
-}));
+vi.mock("./api", async () => (await import("./test-utils/actionMocks")).apiModuleMock());
 // No sharing here, so each sync makes its own request and these tests control every response;
 // advancedCommandList.test.ts covers the sharing.
 vi.mock("./advancedCommandList", async () => {

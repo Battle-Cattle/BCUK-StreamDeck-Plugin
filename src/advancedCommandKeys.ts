@@ -1,11 +1,11 @@
 import type { JsonValue } from "@elgato/utils";
-import streamDeck from "@elgato/streamdeck";
 import { apiRequest, getConnection, logFailure, QUICK_KEY_PRESS_TIMEOUT_MS } from "./api";
+import { alertNotConfigured, pressRequest } from "./keyRequest";
 import { fetchAdvancedCommandList, invalidateAdvancedCommandList } from "./advancedCommandList";
 import { parseCommandId, toAdvancedCommands } from "./advancedCommands";
 
-// Key logic for Trigger Command and Toggle Command, kept out of the decorated action classes so
-// it can be unit-tested (the test runner doesn't compile `@action` decorators).
+// Key logic for Trigger Command and Toggle Command: plain functions over a minimal key interface,
+// shared by both actions and easy to test without building an action instance.
 
 /** The parts of a Stream Deck key these handlers use. */
 export interface CommandKey {
@@ -88,18 +88,15 @@ export function stateFor(isEnabled: boolean): 0 | 1 {
 export async function triggerCommand(key: CommandKey, savedId: JsonValue | undefined): Promise<void> {
 	const commandId = parseCommandId(savedId);
 	if (commandId === null) {
-		streamDeck.logger.warn("Trigger Command: no command configured.");
-		await key.showAlert();
+		await alertNotConfigured(key, "Trigger Command: no command configured.");
 		return;
 	}
-
-	const result = await apiRequest(getConnection(), "/advanced-commands/trigger", { commandId }, QUICK_KEY_PRESS_TIMEOUT_MS);
-	if (result.ok) {
-		await key.showOk();
-		return;
-	}
-	logFailure(`Trigger Command ${commandId}`, result);
-	await key.showAlert();
+	await pressRequest(key, {
+		label: `Trigger Command ${commandId}`,
+		path: "/advanced-commands/trigger",
+		body: { commandId },
+		timeoutMs: QUICK_KEY_PRESS_TIMEOUT_MS,
+	});
 }
 
 /**
@@ -111,8 +108,7 @@ export async function triggerCommand(key: CommandKey, savedId: JsonValue | undef
 export async function toggleCommand(key: CommandKey, savedId: JsonValue | undefined): Promise<void> {
 	const commandId = parseCommandId(savedId);
 	if (commandId === null) {
-		streamDeck.logger.warn("Toggle Command: no command configured.");
-		await key.showAlert();
+		await alertNotConfigured(key, "Toggle Command: no command configured.");
 		return;
 	}
 
