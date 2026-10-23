@@ -46,14 +46,30 @@ function connectElgatoStreamDeckSocket(port, uuid, registerEvent) {
  * @param {object} s The stored global settings.
  */
 function applyGlobalSettings(s) {
-	let serverUrl = typeof s.serverUrl === "string" ? s.serverUrl : "";
-	if (!serverUrl && typeof s.host === "string" && s.host) {
-		serverUrl = `http://${s.host}:${s.port || 3000}`;
-	}
-	globals = { serverUrl, apiKey: typeof s.apiKey === "string" ? s.apiKey : "" };
+	globals = migrateGlobalSettings(s);
 	document.getElementById("serverUrl").value = globals.serverUrl;
 	document.getElementById("apiKey").value = globals.apiKey;
 	updateUrlWarning();
+}
+
+/**
+ * Reads raw global settings, falling back to the legacy host/port pair (always plain HTTP) when no
+ * Server URL has been saved yet. Must match the plugin's migrateGlobalSettings (src/api.ts):
+ * src/piCommon.test.ts runs the same cases against both.
+ * @param {object} raw Settings as stored by Stream Deck.
+ * @returns {{serverUrl: string, apiKey: string}} The trimmed Server URL (or one built from
+ *   host/port, or empty) and the API key (empty if unset).
+ */
+function migrateGlobalSettings(raw) {
+	const apiKey = typeof raw.apiKey === "string" ? raw.apiKey : "";
+	if (typeof raw.serverUrl === "string" && raw.serverUrl.trim()) {
+		return { serverUrl: raw.serverUrl.trim(), apiKey };
+	}
+	if (typeof raw.host === "string" && raw.host.trim()) {
+		const port = typeof raw.port === "number" ? raw.port : 3000;
+		return { serverUrl: `http://${raw.host.trim()}:${port}`, apiKey };
+	}
+	return { serverUrl: "", apiKey };
 }
 
 /**
@@ -81,7 +97,8 @@ function updateUrlWarning() {
 }
 
 /**
- * Whether a URL's host is this machine. Matches the plugin's isLoopbackHost (src/api.ts):
+ * Whether a URL's host is this machine. Matches the plugin's isLoopbackHost (src/api.ts), which
+ * src/piCommon.test.ts checks with a shared case table:
  * localhost, [::1] and all of 127.x.x.x. The host is parsed, so user-info such as
  * http://127.0.0.1:x@remote.example can't pass for loopback; an unparseable URL isn't loopback.
  * @param {string} url The Server URL.
