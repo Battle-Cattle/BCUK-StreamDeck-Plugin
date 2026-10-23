@@ -10,7 +10,7 @@ vi.mock("./api", () => ({
 }));
 
 import { apiRequest, logFailure } from "./api";
-import { stateFor, syncToggleState, toggleCommand, triggerCommand } from "./advancedCommandKeys";
+import { forgetKey, stateFor, syncToggleState, toggleCommand, trackedKeyCount, triggerCommand } from "./advancedCommandKeys";
 
 let keyCount = 0;
 function key(id = `key-${++keyCount}`) {
@@ -166,5 +166,51 @@ describe("syncToggleState", () => {
 		await Promise.all([syncToggleState(a, "7"), syncToggleState(b, "7")]);
 		expect(a.setState).toHaveBeenCalledWith(0);
 		expect(b.setState).toHaveBeenCalledWith(0);
+	});
+});
+
+describe("forgetKey", () => {
+	it("stops tracking keys once they disappear", async () => {
+		vi.mocked(apiRequest).mockResolvedValue({ ok: true, data: { commands: [{ id: 7, name: "Hydrate", isEnabled: true }] } });
+		const before = trackedKeyCount();
+		const keys = [key(), key(), key()];
+		await Promise.all(keys.map((k) => syncToggleState(k, "7")));
+		expect(trackedKeyCount()).toBe(before + 3);
+
+		for (const k of keys) forgetKey(k.id);
+
+		expect(trackedKeyCount()).toBe(before);
+	});
+
+	it("leaves the state alone when a sync finishes after its key disappeared", async () => {
+		const pending = deferred<unknown>();
+		vi.mocked(apiRequest).mockReturnValueOnce(pending.promise as never);
+		const k = key();
+		const before = trackedKeyCount();
+
+		const sync = syncToggleState(k, "7");
+		forgetKey(k.id);
+		pending.resolve({ ok: true, data: { commands: [{ id: 7, name: "Hydrate", isEnabled: true }] } });
+		await sync;
+
+		expect(k.setState).not.toHaveBeenCalled();
+		expect(trackedKeyCount()).toBe(before);
+	});
+
+	it("doesn't let a sync from before a key disappeared overwrite the state after it reappears", async () => {
+		const stale = deferred<unknown>();
+		vi.mocked(apiRequest)
+			.mockReturnValueOnce(stale.promise as never)
+			.mockResolvedValueOnce({ ok: true, data: { commands: [{ id: 7, name: "Hydrate", isEnabled: false }] } });
+		const k = key();
+
+		const before = syncToggleState(k, "7");
+		forgetKey(k.id);
+		await syncToggleState(k, "7");
+		stale.resolve({ ok: true, data: { commands: [{ id: 7, name: "Hydrate", isEnabled: true }] } });
+		await before;
+
+		expect(k.setState).toHaveBeenCalledTimes(1);
+		expect(k.setState).toHaveBeenCalledWith(1);
 	});
 });

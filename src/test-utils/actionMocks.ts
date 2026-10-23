@@ -3,10 +3,12 @@ import { vi } from "vitest";
 /**
  * A stand-in for the `ev.action` a Stream Deck event carries.
  * @param isKey What `isKey()` returns: true for a keypad key, false for a dial.
+ * @param id The action instance's id.
  * @returns An object whose `showOk`, `showAlert`, `setSettings` and `setState` are `vi.fn()` spies.
  */
-export function fakeAction(isKey = true) {
+export function fakeAction(isKey = true, id = "action-1") {
 	return {
+		id,
 		showOk: vi.fn(),
 		showAlert: vi.fn(),
 		setSettings: vi.fn(),

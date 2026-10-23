@@ -3,7 +3,7 @@ import { streamDeckModuleMock } from "../test-utils/streamdeckMock";
 import { type CatalogSpy, fakeAction, fakeEvent } from "../test-utils/actionMocks";
 
 vi.mock("@elgato/streamdeck", () => streamDeckModuleMock());
-vi.mock("../advancedCommandKeys", () => ({ toggleCommand: vi.fn(), syncToggleState: vi.fn(), triggerCommand: vi.fn() }));
+vi.mock("../advancedCommandKeys", () => ({ toggleCommand: vi.fn(), syncToggleState: vi.fn(), triggerCommand: vi.fn(), forgetKey: vi.fn() }));
 const catalogs = vi.hoisted(() => ({ instances: [] as CatalogSpy[] }));
 vi.mock("./advancedCommandCatalog", () => ({
 	createAdvancedCommandCatalog: () => {
@@ -13,7 +13,7 @@ vi.mock("./advancedCommandCatalog", () => ({
 	},
 }));
 
-import { syncToggleState, toggleCommand } from "../advancedCommandKeys";
+import { forgetKey, syncToggleState, toggleCommand } from "../advancedCommandKeys";
 import { ToggleCommandAction } from "./toggle-command";
 
 beforeEach(() => vi.clearAllMocks());
@@ -52,6 +52,12 @@ describe("ToggleCommandAction", () => {
 		await toggle.onDidReceiveSettings(fakeEvent({ settings: { commandId: "8" } }, fakeAction(false)));
 
 		expect(syncToggleState).not.toHaveBeenCalled();
+	});
+
+	it("forgets the key's state syncs when it disappears", () => {
+		new ToggleCommandAction().onWillDisappear(fakeEvent({ settings: { commandId: "7" } }, fakeAction(true, "key-9")));
+
+		expect(forgetKey).toHaveBeenCalledWith("key-9");
 	});
 
 	it("shows the newly chosen command's state", async () => {
