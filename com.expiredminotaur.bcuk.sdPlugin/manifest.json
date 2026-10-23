@@ -1,6 +1,6 @@
 {
 	"Name": "BCUK Bot",
-	"Version": "1.3.3.0",
+	"Version": "1.4.0.0",
 	"Author": "BCUK",
 	"Description": "Control BCUK Bot directly from your Stream Deck.",
 	"Icon": "imgs/plugin/marketplace",
@@ -9,7 +9,7 @@
 	"CodePath": "bin/plugin.js",
 	"SDKVersion": 3,
 	"Software": {
-		"MinimumVersion": "6.9"
+		"MinimumVersion": "7.1"
 	},
 	"OS": [
 		{
@@ -22,7 +22,7 @@
 		}
 	],
 	"Nodejs": {
-		"Version": "20"
+		"Version": "24"
 	},
 	"UUID": "com.expiredminotaur.bcuk",
 	"Actions": [

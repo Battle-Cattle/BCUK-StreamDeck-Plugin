@@ -13,7 +13,7 @@ Guidance for working in this repo.
 
 ## Node/npm version
 
-CI (`.github/workflows/ci.yml`) uses Node `20.x`, the version Stream Deck runs the plugin on (`Nodejs.Version` in the manifest). ESLint needs Node 20.19 or later, and `sharp` (used by `npm run placeholders`) 20.9 or later. A newer Node also works locally. Don't pick a dev dependency whose `engines` drops Node 20: that's why `eslint-plugin-jsdoc` stays on 62.x, where BCUK-Bot-4 (on Node 24) uses 65.x, and `vitest` on 4.x (5 needs Node 22.12+). `.github/dependabot.yml` ignores those majors. If `npm ci` fails with lockfile errors, check `node -v`/`npm -v` before changing the lockfile.
+CI (`.github/workflows/ci.yml`) uses Node `24.x`, the version Stream Deck runs the plugin on (`Nodejs.Version` in the manifest, which needs Stream Deck 7.1 or later). A newer Node also works locally. Don't pick a dev dependency whose `engines` drops the runtime's Node. `@types/node` stays on 24 to match it, and `.github/dependabot.yml` ignores its majors. If `npm ci` fails with lockfile errors, check `node -v`/`npm -v` before changing the lockfile.
 
 ## ALWAYS: Before committing
 

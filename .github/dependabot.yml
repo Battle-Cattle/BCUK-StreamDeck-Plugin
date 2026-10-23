@@ -20,16 +20,9 @@ updates:
           - "minor"
           - "patch"
     ignore:
-      # Stream Deck runs the plugin on Node 20 (see CLAUDE.md "Node/npm version"). These follow
-      # Node 20's types/config, and eslint-plugin-jsdoc 63+ and vitest 5+ drop Node 20, so their
-      # majors are bumped by hand when Stream Deck's Node version moves.
+      # Stream Deck runs the plugin on Node 24 (see CLAUDE.md "Node/npm version"). @types/node stays
+      # on 24 to match the runtime: 25+ describe APIs that Node 24 doesn't have.
       - dependency-name: "@types/node"
-        update-types: ["version-update:semver-major"]
-      - dependency-name: "@tsconfig/node20"
-        update-types: ["version-update:semver-major"]
-      - dependency-name: "eslint-plugin-jsdoc"
-        update-types: ["version-update:semver-major"]
-      - dependency-name: "vitest"
         update-types: ["version-update:semver-major"]
 
   - package-ecosystem: "github-actions"

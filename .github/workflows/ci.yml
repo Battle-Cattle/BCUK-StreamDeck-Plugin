@@ -22,7 +22,7 @@ jobs:
           persist-credentials: false
       - uses: actions/setup-node@v7
         with:
-          node-version: 20.x
+          node-version: 24.x
           cache: npm
       - run: npm ci
       - run: npm run typecheck
@@ -60,7 +60,7 @@ jobs:
           persist-credentials: false
       - uses: actions/setup-node@v7
         with:
-          node-version: 20.x
+          node-version: 24.x
           cache: npm
       - name: Read the manifest version
         id: version
