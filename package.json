@@ -23,7 +23,7 @@
     "@vitest/eslint-plugin": "^1.6.27",
     "eslint": "^10.13.0",
     "eslint-plugin-html": "^8.2.1",
-    "eslint-plugin-jsdoc": "^62.9.0",
+    "eslint-plugin-jsdoc": "^65.4.0",
     "eslint-plugin-sonarjs": "^4.2.2",
     "globals": "^17.13.0",
     "rolldown": "^1.2.14",
