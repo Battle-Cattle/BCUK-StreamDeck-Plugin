@@ -30,10 +30,22 @@
 
 <script src="pi-common.js"></script>
 <script>
-	/* global selectSaved, setStatus, setButtonSettings, saveGlobal, sendToPlugin */
+	/* global selectSaved, setButtonSettings, setupCatalogPage */
 	// Per-button settings: just the command. The trigger list comes from the plugin.
+	const commandSelect = document.getElementById("command");
 	let command = "";
-	let listLoaded = false;
+
+	const page = setupCatalogPage({
+		selectId: "command",
+		placeholder: "— select a command —",
+		loadedEvent: "commandsLoaded",
+		errorEvent: "commandsError",
+		listKey: "triggers",
+		refreshEvent: "refreshCommands",
+		noun: "commands",
+		render: renderTriggers,
+		onLoaded: () => selectSaved(commandSelect, command, command, true),
+	});
 
 	/**
 	 * Shows the button's saved command (pi-common.js calls this when its settings arrive).
@@ -41,52 +53,27 @@
 	 */
 	function onButtonSettings(s) {
 		command = s.command || "";
-		// If commandsLoaded already populated the dropdown, apply the saved selection now.
-		selectSaved(document.getElementById("command"), command, command, listLoaded);
+		// If the list already arrived, apply the saved selection now.
+		selectSaved(commandSelect, command, command, page.isLoaded());
 	}
 
 	/**
-	 * Fills the command list, or shows why it couldn't be loaded (pi-common.js calls this for each plugin message).
-	 * @param {object} payload The plugin's message.
-	 */
-	function onPluginMessage(payload) {
-		if (payload.event === "commandsLoaded") {
-			populateDropdown(payload.triggers || []);
-			setStatus("Commands loaded.", true);
-		} else if (payload.event === "commandsError") {
-			setStatus(`Error: ${payload.error}`);
-		}
-		document.getElementById("refreshBtn").disabled = false;
-	}
-
-	/**
-	 * Lists the bot's sound effect commands, prefixed with their category, and reselects the saved one.
+	 * Lists the bot's sound effect commands, prefixed with their category.
+	 * @param {HTMLSelectElement} sel The emptied dropdown.
 	 * @param {Array<{triggerCommand: string, categoryName?: string}>} triggers The commands from the plugin.
 	 */
-	function populateDropdown(triggers) {
-		const sel = document.getElementById("command");
-		sel.innerHTML = '<option value="">— select a command —</option>';
+	function renderTriggers(sel, triggers) {
 		for (const t of triggers) {
 			const opt = document.createElement("option");
 			opt.value = t.triggerCommand;
 			opt.textContent = t.categoryName ? `[${t.categoryName}] ${t.triggerCommand}` : t.triggerCommand;
 			sel.appendChild(opt);
 		}
-		listLoaded = true;
-		selectSaved(sel, command, command, listLoaded);
 	}
 
-	document.getElementById("command").addEventListener("change", () => {
-		command = document.getElementById("command").value;
+	commandSelect.addEventListener("change", () => {
+		command = commandSelect.value;
 		setButtonSettings({ command });
-	});
-
-	document.getElementById("refreshBtn").addEventListener("click", () => {
-		setStatus("Fetching commands…");
-		document.getElementById("refreshBtn").disabled = true;
-		// Save first, and pass the fields along, so the plugin uses exactly what's in the form.
-		const { serverUrl, apiKey } = saveGlobal();
-		sendToPlugin({ event: "refreshCommands", serverUrl, apiKey });
 	});
 </script>
 

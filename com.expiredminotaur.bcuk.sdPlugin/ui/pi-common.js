@@ -3,11 +3,15 @@
 // optional hooks before this file's connect function is called by Stream Deck:
 //   onButtonSettings(settings)  – per-button settings arrived
 //   onPluginMessage(payload)    – the plugin sent a sendToPropertyInspector message
+// A page with a dropdown filled from the plugin calls setupCatalogPage instead of handling the
+// list's messages itself.
 /* global onButtonSettings, onPluginMessage */
 
 let ws = null;
 let context = null;
 let globals = { serverUrl: "", apiKey: "" };
+// The handler setupCatalogPage registered for the plugin's list messages, if the page has one.
+let catalogMessageHandler = null;
 
 /**
  * Called by Stream Deck once the page has loaded.
@@ -34,10 +38,73 @@ function connectElgatoStreamDeckSocket(port, uuid, registerEvent) {
 		if (data.event === "didReceiveGlobalSettings") {
 			applyGlobalSettings(data.payload.settings || {});
 		}
-		if (data.event === "sendToPropertyInspector" && typeof onPluginMessage === "function") {
-			onPluginMessage(data.payload);
+		if (data.event === "sendToPropertyInspector") {
+			handlePluginMessage(data.payload);
 		}
 	};
+}
+
+/**
+ * Passes a plugin message to the catalog set up by {@link setupCatalogPage} and to the page's own
+ * onPluginMessage hook, whichever the page has.
+ * @param {object} payload The plugin's message.
+ */
+function handlePluginMessage(payload) {
+	if (catalogMessageHandler) catalogMessageHandler(payload);
+	if (typeof onPluginMessage === "function") onPluginMessage(payload);
+}
+
+/**
+ * Wires a page's dropdown to a list the plugin sends: fills it on the loaded message, shows the
+ * error message, re-enables the refresh button after either, and makes the refresh button save
+ * the connection fields and ask the plugin to refetch with them.
+ * @param {object} options How the page's list is named, delivered and drawn.
+ * @param {string} options.selectId The dropdown's element id.
+ * @param {string} options.placeholder The empty first option's text, e.g. "— select a command —".
+ * @param {string} options.loadedEvent The plugin's "list loaded" message name.
+ * @param {string} options.errorEvent The plugin's "list failed" message name.
+ * @param {string} options.listKey The key holding the list in the loaded message.
+ * @param {string} options.refreshEvent The message the refresh button sends.
+ * @param {string} options.noun The list's name in status text, lower case, e.g. "commands".
+ * @param {(select: HTMLSelectElement, items: Array<object>) => void} options.render Appends the
+ *   items' options to the emptied dropdown.
+ * @param {() => void} options.onLoaded Runs after each render, e.g. to reselect the saved value.
+ * @returns {{isLoaded: () => boolean}} Whether the plugin's list has been loaded into the dropdown yet.
+ */
+function setupCatalogPage(options) {
+	const select = document.getElementById(options.selectId);
+	const refreshButton = document.getElementById("refreshBtn");
+	const capitalised = options.noun.charAt(0).toUpperCase() + options.noun.slice(1);
+	let loaded = false;
+
+	catalogMessageHandler = (payload) => {
+		if (payload.event === options.loadedEvent) {
+			select.innerHTML = "";
+			const placeholder = document.createElement("option");
+			placeholder.value = "";
+			placeholder.textContent = options.placeholder;
+			select.appendChild(placeholder);
+			options.render(select, payload[options.listKey] || []);
+			loaded = true;
+			options.onLoaded();
+			setStatus(`${capitalised} loaded.`, true);
+		} else if (payload.event === options.errorEvent) {
+			setStatus(`Error: ${payload.error}`);
+		} else {
+			return;
+		}
+		refreshButton.disabled = false;
+	};
+
+	refreshButton.addEventListener("click", () => {
+		setStatus(`Fetching ${options.noun}…`);
+		refreshButton.disabled = true;
+		// Save first, and pass the fields along, so the plugin uses exactly what's in the form.
+		const { serverUrl, apiKey } = saveGlobal();
+		sendToPlugin({ event: options.refreshEvent, serverUrl, apiKey });
+	});
+
+	return { isLoaded: () => loaded };
 }
 
 /**
@@ -168,6 +235,8 @@ function selectSaved(select, value, label, listLoaded) {
  */
 function setStatus(msg, isOk = false) {
 	const el = document.getElementById("status");
+	// Leave Voice's page has no list, so no status line.
+	if (!el) return;
 	el.textContent = msg;
 	el.className = isOk ? "ok" : "";
 	if (isOk) setTimeout(() => { el.textContent = ""; el.className = ""; }, 3000);
