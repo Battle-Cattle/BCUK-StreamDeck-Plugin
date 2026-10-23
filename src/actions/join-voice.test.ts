@@ -3,22 +3,9 @@ import { streamDeckModuleMock } from "../test-utils/streamdeckMock";
 import { type CatalogSpy, fakeAction, fakeEvent } from "../test-utils/actionMocks";
 
 vi.mock("@elgato/streamdeck", () => streamDeckModuleMock());
-vi.mock("../api", () => ({
-	apiRequest: vi.fn(),
-	getConnection: vi.fn(() => ({ serverUrl: "https://bot.example", apiKey: "k" })),
-	logFailure: vi.fn(),
-}));
+vi.mock("../api", async () => (await import("../test-utils/actionMocks")).apiModuleMock());
 const catalogs = vi.hoisted(() => ({ instances: [] as CatalogSpy[] }));
-vi.mock("../inspectorCatalog", () => ({
-	InspectorCatalog: class {
-		show = vi.fn();
-		refresh = vi.fn();
-		seed = vi.fn();
-		constructor() {
-			catalogs.instances.push(this);
-		}
-	},
-}));
+vi.mock("../inspectorCatalog", async () => (await import("../test-utils/actionMocks")).inspectorCatalogModuleMock(catalogs.instances));
 
 import { apiRequest, logFailure } from "../api";
 import { getLastJoinedGuildId, setLastJoinedGuildId } from "../voiceState";
@@ -81,6 +68,16 @@ describe("JoinVoiceAction", () => {
 		await new JoinVoiceAction().onWillAppear(fakeEvent({ settings }, action));
 
 		expect(action.setSettings).toHaveBeenCalledWith(expected);
+	});
+
+	it("drops a legacy channel list without seeding the catalog from it", async () => {
+		const join = new JoinVoiceAction();
+		const catalog = catalogs.instances.at(-1)!;
+		const cachedChannels = [{ id: "c1", name: "General" }];
+
+		await join.onWillAppear(fakeEvent({ settings: { channelId: "c1", guildId: "g1", cachedChannels } }));
+
+		expect(catalog.seed).not.toHaveBeenCalled();
 	});
 
 	it("leaves current settings alone, even with no channel chosen", async () => {

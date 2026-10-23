@@ -1,10 +1,11 @@
 import type { JsonValue } from "@elgato/utils";
-import streamDeck from "@elgato/streamdeck";
 import { apiRequest, getConnection, logFailure, QUICK_KEY_PRESS_TIMEOUT_MS } from "./api";
+import { alertNotConfigured, pressRequest } from "./keyRequest";
+import { fetchAdvancedCommandList, invalidateAdvancedCommandList } from "./advancedCommandList";
 import { parseCommandId, toAdvancedCommands } from "./advancedCommands";
 
-// Key logic for Trigger Command and Toggle Command, kept out of the decorated action classes so
-// it can be unit-tested (the test runner doesn't compile `@action` decorators).
+// Key logic for Trigger Command and Toggle Command: plain functions over a minimal key interface,
+// shared by both actions and easy to test without building an action instance.
 
 /** The parts of a Stream Deck key these handlers use. */
 export interface CommandKey {
@@ -87,18 +88,15 @@ export function stateFor(isEnabled: boolean): 0 | 1 {
 export async function triggerCommand(key: CommandKey, savedId: JsonValue | undefined): Promise<void> {
 	const commandId = parseCommandId(savedId);
 	if (commandId === null) {
-		streamDeck.logger.warn("Trigger Command: no command configured.");
-		await key.showAlert();
+		await alertNotConfigured(key, "Trigger Command: no command configured.");
 		return;
 	}
-
-	const result = await apiRequest(getConnection(), "/advanced-commands/trigger", { commandId }, QUICK_KEY_PRESS_TIMEOUT_MS);
-	if (result.ok) {
-		await key.showOk();
-		return;
-	}
-	logFailure(`Trigger Command ${commandId}`, result);
-	await key.showAlert();
+	await pressRequest(key, {
+		label: `Trigger Command ${commandId}`,
+		path: "/advanced-commands/trigger",
+		body: { commandId },
+		timeoutMs: QUICK_KEY_PRESS_TIMEOUT_MS,
+	});
 }
 
 /**
@@ -110,8 +108,7 @@ export async function triggerCommand(key: CommandKey, savedId: JsonValue | undef
 export async function toggleCommand(key: CommandKey, savedId: JsonValue | undefined): Promise<void> {
 	const commandId = parseCommandId(savedId);
 	if (commandId === null) {
-		streamDeck.logger.warn("Toggle Command: no command configured.");
-		await key.showAlert();
+		await alertNotConfigured(key, "Toggle Command: no command configured.");
 		return;
 	}
 
@@ -121,6 +118,10 @@ export async function toggleCommand(key: CommandKey, savedId: JsonValue | undefi
 	const result = await apiRequest<{ isEnabled?: JsonValue }>(
 		getConnection(), "/advanced-commands/enabled", { commandId }, QUICK_KEY_PRESS_TIMEOUT_MS,
 	);
+	if (result.ok) {
+		// The command's state changed, so a shared list fetched before the press is out of date.
+		invalidateAdvancedCommandList();
+	}
 	if (result.ok && typeof result.data.isEnabled === "boolean") {
 		// The press did take effect, so the OK is still shown; only the state of a command the key
 		// no longer shows is skipped.
@@ -133,7 +134,8 @@ export async function toggleCommand(key: CommandKey, savedId: JsonValue | undefi
 }
 
 /**
- * Shows a button's command's current enabled state, read from the bot. Leaves the key as it is
+ * Shows a button's command's current enabled state, read from the bot's command list (shared with
+ * other keys syncing at about the same time, see `fetchAdvancedCommandList`). Leaves the key as it is
  * when no command is chosen, it no longer exists, the bot can't be reached, or a newer sync or
  * key press started while this one's request was in flight.
  * @param key The key to update.
@@ -143,7 +145,8 @@ export async function syncToggleState(key: CommandKey, savedId: JsonValue | unde
 	const generation = nextGeneration(key);
 	const commandId = parseCommandId(savedId);
 	if (commandId === null) return;
-	const result = await apiRequest<{ commands?: JsonValue }>(getConnection(), "/advanced-commands", undefined, QUICK_KEY_PRESS_TIMEOUT_MS);
+	// Shared with every other key syncing at the same time (e.g. a page of Toggle keys appearing).
+	const result = await fetchAdvancedCommandList(getConnection());
 	if (!result.ok) {
 		logFailure("Toggle Command state", result);
 		return;

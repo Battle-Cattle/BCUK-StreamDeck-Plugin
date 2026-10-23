@@ -5,13 +5,16 @@ import { type CatalogSpy, fakeAction, fakeEvent } from "../test-utils/actionMock
 vi.mock("@elgato/streamdeck", () => streamDeckModuleMock());
 vi.mock("../advancedCommandKeys", () => ({ triggerCommand: vi.fn() }));
 const catalogs = vi.hoisted(() => ({ instances: [] as CatalogSpy[] }));
-vi.mock("./advancedCommandCatalog", () => ({
-	createAdvancedCommandCatalog: () => {
-		const catalog = { show: vi.fn(), refresh: vi.fn(), seed: vi.fn() };
-		catalogs.instances.push(catalog);
-		return catalog;
-	},
-}));
+vi.mock("./advancedCommandCatalog", async () => {
+	const { catalogMock } = await import("../test-utils/actionMocks");
+	return {
+		createAdvancedCommandCatalog: () => {
+			const catalog = catalogMock();
+			catalogs.instances.push(catalog);
+			return catalog;
+		},
+	};
+});
 
 import { triggerCommand } from "../advancedCommandKeys";
 import { TriggerCommandAction } from "./trigger-command";

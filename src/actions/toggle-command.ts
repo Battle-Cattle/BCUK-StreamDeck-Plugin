@@ -1,28 +1,21 @@
-import type { JsonObject, JsonValue } from "@elgato/utils";
 import {
 	action,
 	type DidReceiveSettingsEvent,
 	type KeyDownEvent,
-	type SendToPluginEvent,
-	SingletonAction,
 	type WillAppearEvent,
 	type WillDisappearEvent,
 } from "@elgato/streamdeck";
+import type { AdvancedCommand } from "../advancedCommands";
 import { forgetKey, syncToggleState, toggleCommand } from "../advancedCommandKeys";
-import { createAdvancedCommandCatalog } from "./advancedCommandCatalog";
-
-interface CommandSettings extends JsonObject {
-	[key: string]: JsonValue;
-	commandId: string;
-}
-
-// A message from the property inspector. Its payload is whatever JSON the page sent, so the
-// handler checks `event` rather than trusting it to be "refreshCommands".
-type PiToPluginMsg = { event: string; serverUrl: string; apiKey: string };
+import { type CommandSettings, createAdvancedCommandCatalog } from "./advancedCommandCatalog";
+import { CatalogAction } from "./catalogAction";
 
 @action({ UUID: "com.expiredminotaur.bcuk.command-toggle" })
-export class ToggleCommandAction extends SingletonAction<CommandSettings> {
-	private readonly catalog = createAdvancedCommandCatalog();
+export class ToggleCommandAction extends CatalogAction<CommandSettings, AdvancedCommand> {
+	/** Creates the action with its advanced-command dropdown list. */
+	constructor() {
+		super(createAdvancedCommandCatalog(), "refreshCommands");
+	}
 
 	/**
 	 * Flips the button's advanced command on or off (see `toggleCommand`).
@@ -58,20 +51,5 @@ export class ToggleCommandAction extends SingletonAction<CommandSettings> {
 	 */
 	override async onDidReceiveSettings(ev: DidReceiveSettingsEvent<CommandSettings>): Promise<void> {
 		if (ev.action.isKey()) await syncToggleState(ev.action, ev.payload.settings.commandId);
-	}
-
-	/** Sends the command list to a newly opened property inspector, fetching it first if needed. */
-	override async onPropertyInspectorDidAppear(): Promise<void> {
-		await this.catalog.show();
-	}
-
-	/**
-	 * Handles the property inspector's "Refresh Commands" request.
-	 * @param ev The inspector's message: its event name and the Server URL and API key in its form.
-	 */
-	override async onSendToPlugin(ev: SendToPluginEvent<PiToPluginMsg, CommandSettings>): Promise<void> {
-		if (ev.payload.event === "refreshCommands") {
-			await this.catalog.refresh({ serverUrl: ev.payload.serverUrl, apiKey: ev.payload.apiKey });
-		}
 	}
 }

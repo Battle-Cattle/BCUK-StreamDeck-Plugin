@@ -33,3 +33,46 @@ export interface CatalogSpy {
 	refresh: ReturnType<typeof vi.fn>;
 	seed: ReturnType<typeof vi.fn>;
 }
+
+/**
+ * A fresh mocked catalog: `show`, `refresh` and `seed` are `vi.fn()` spies.
+ * @returns The spy object, shaped like an `InspectorCatalog`.
+ */
+export function catalogMock(): CatalogSpy {
+	return { show: vi.fn(), refresh: vi.fn(), seed: vi.fn() };
+}
+
+/**
+ * A `vi.mock("../inspectorCatalog", ...)` module whose `InspectorCatalog` records each instance.
+ * `vi.mock` factories are hoisted, so call this from `async () => (await import(...)).…`.
+ * @param instances Where each constructed catalog is pushed (create it with `vi.hoisted`).
+ * @returns The mocked module.
+ */
+export function inspectorCatalogModuleMock(instances: CatalogSpy[]) {
+	return {
+		InspectorCatalog: class implements CatalogSpy {
+			show = vi.fn();
+			refresh = vi.fn();
+			seed = vi.fn();
+			constructor() {
+				instances.push(this);
+			}
+		},
+	};
+}
+
+/**
+ * A `vi.mock("../api", ...)` module: `apiRequest` and `logFailure` spies, a fixed connection and the
+ * quick key-press timeout (5000). `vi.mock` factories are hoisted, so call this from
+ * `async () => (await import(...)).apiModuleMock()`.
+ * @returns The mocked module.
+ */
+export function apiModuleMock() {
+	return {
+		apiRequest: vi.fn(),
+		getConnection: vi.fn(() => ({ serverUrl: "https://bot.example", apiKey: "k" })),
+		logFailure: vi.fn(),
+		QUICK_KEY_PRESS_TIMEOUT_MS: 5000,
+	};
+}
+

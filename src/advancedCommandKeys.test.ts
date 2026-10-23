@@ -2,14 +2,19 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 import { streamDeckModuleMock } from "./test-utils/streamdeckMock";
 
 vi.mock("@elgato/streamdeck", () => streamDeckModuleMock());
-vi.mock("./api", () => ({
-	apiRequest: vi.fn(),
-	getConnection: vi.fn(() => ({ serverUrl: "https://bot.example", apiKey: "k" })),
-	logFailure: vi.fn(),
-	QUICK_KEY_PRESS_TIMEOUT_MS: 5000,
-}));
+vi.mock("./api", async () => (await import("./test-utils/actionMocks")).apiModuleMock());
+// No sharing here, so each sync makes its own request and these tests control every response;
+// advancedCommandList.test.ts covers the sharing.
+vi.mock("./advancedCommandList", async () => {
+	const api = await import("./api");
+	return {
+		fetchAdvancedCommandList: vi.fn((connection: unknown) => api.apiRequest(connection as never, "/advanced-commands", undefined, 5000)),
+		invalidateAdvancedCommandList: vi.fn(),
+	};
+});
 
 import { apiRequest, logFailure } from "./api";
+import { invalidateAdvancedCommandList } from "./advancedCommandList";
 import { forgetKey, stateFor, syncToggleState, toggleCommand, trackedKeyCount, triggerCommand } from "./advancedCommandKeys";
 
 let keyCount = 0;
@@ -62,6 +67,18 @@ describe("toggleCommand", () => {
 		expect(apiRequest).toHaveBeenCalledWith(expect.anything(), "/advanced-commands/enabled", { commandId: 7 }, 5000);
 		expect(k.setState).toHaveBeenCalledWith(1);
 		expect(k.showOk).toHaveBeenCalled();
+	});
+
+	it("drops the shared command list after a press, which changed a command's state", async () => {
+		vi.mocked(apiRequest).mockResolvedValueOnce({ ok: true, data: { isEnabled: true } });
+		await toggleCommand(key(), "7");
+		expect(invalidateAdvancedCommandList).toHaveBeenCalledTimes(1);
+	});
+
+	it("keeps the shared command list when a press fails", async () => {
+		vi.mocked(apiRequest).mockResolvedValueOnce({ ok: false, status: null, error: "offline" });
+		await toggleCommand(key(), "7");
+		expect(invalidateAdvancedCommandList).not.toHaveBeenCalled();
 	});
 
 	it("alerts when the response lacks the new state, fails, or no command is set", async () => {
