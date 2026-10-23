@@ -22,7 +22,7 @@ The plugin talks to the bot's `/api/streamdeck` routes; see `src/web/routes/stre
 
 - Stream Deck software 7.1+ (on Stream Deck 6.9–7.0, install [v1.3.3](https://github.com/Battle-Cattle/BCUK-StreamDeck-Plugin/releases/tag/v1.3.3), the last release that supports them)
 - Windows 10+ or macOS 12+
-- Node.js 24 or later (for development)
+- Node.js 24.22.1 or later (for development)
 
 ## Development
 

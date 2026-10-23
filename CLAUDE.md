@@ -13,7 +13,7 @@ Guidance for working in this repo.
 
 ## Node/npm version
 
-CI (`.github/workflows/ci.yml`) uses Node `24.x`, the version Stream Deck runs the plugin on (`Nodejs.Version` in the manifest, which needs Stream Deck 7.1 or later). A newer Node also works locally. Don't pick a dev dependency whose `engines` drops the runtime's Node. `@types/node` stays on 24 to match it, and `.github/dependabot.yml` ignores its majors. If `npm ci` fails with lockfile errors, check `node -v`/`npm -v` before changing the lockfile.
+CI (`.github/workflows/ci.yml`) uses the latest Node `24.x` (`check-latest: true`, so it never falls back to an older release cached on the runner), the version Stream Deck runs the plugin on (`Nodejs.Version` in the manifest, which needs Stream Deck 7.1 or later). `engines` in `package.json` asks for 24.22.1 or later, the release with the October 2026 security fixes, and npm warns (`EBADENGINE`) on anything older. A newer Node also works locally. Don't pick a dev dependency whose `engines` drops the runtime's Node. `@types/node` stays on 24 to match it, and `.github/dependabot.yml` ignores its majors. If `npm ci` fails with lockfile errors, check `node -v`/`npm -v` before changing the lockfile.
 
 ## ALWAYS: Before committing
 
