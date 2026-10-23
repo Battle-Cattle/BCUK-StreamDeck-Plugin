@@ -6,8 +6,9 @@ import {
 	type SendToPluginEvent,
 	SingletonAction,
 	type WillAppearEvent,
+	type WillDisappearEvent,
 } from "@elgato/streamdeck";
-import { syncToggleState, toggleCommand } from "../advancedCommandKeys";
+import { forgetKey, syncToggleState, toggleCommand } from "../advancedCommandKeys";
 import { createAdvancedCommandCatalog } from "./advancedCommandCatalog";
 
 interface CommandSettings extends JsonObject {
@@ -41,6 +42,14 @@ export class ToggleCommandAction extends SingletonAction<CommandSettings> {
 			return;
 		}
 		if (ev.action.isKey()) await syncToggleState(ev.action, ev.payload.settings.commandId);
+	}
+
+	/**
+	 * Stops tracking the key's state syncs once it's gone (see `forgetKey`).
+	 * @param ev The disappearance event, carrying the action instance.
+	 */
+	override onWillDisappear(ev: WillDisappearEvent<CommandSettings>): void {
+		forgetKey(ev.action.id);
 	}
 
 	/**

@@ -16,11 +16,19 @@ export interface CommandKey {
 }
 
 /**
- * Per key, a counter bumped by every state sync and toggle press. A sync applies its result only if
- * the counter hasn't moved while its request was in flight, so a slow, superseded sync (for a
- * previously selected command, or one started before a key press) can't overwrite a newer state.
+ * Per key, the generation of its latest state sync or toggle press. A sync applies its result only
+ * if the key's generation hasn't moved while its request was in flight, so a slow, superseded sync
+ * (for a previously selected command, or one started before a key press) can't overwrite a newer
+ * state. Entries are removed when a key disappears (see {@link forgetKey}).
  */
 const stateGenerations = new Map<string, number>();
+
+/**
+ * The last generation handed out, across all keys. Generations are never reused, so a sync still
+ * in flight when its key disappeared can't match the generation of a sync started after the key
+ * reappears.
+ */
+let lastGeneration = 0;
 
 /**
  * Starts a new state change on a key, superseding any sync still in flight for it.
@@ -28,19 +36,37 @@ const stateGenerations = new Map<string, number>();
  * @returns The new generation, for {@link isCurrent}.
  */
 function nextGeneration(key: CommandKey): number {
-	const generation = (stateGenerations.get(key.id) ?? 0) + 1;
-	stateGenerations.set(key.id, generation);
-	return generation;
+	lastGeneration += 1;
+	stateGenerations.set(key.id, lastGeneration);
+	return lastGeneration;
 }
 
 /**
- * Whether no newer state change has started on a key since `generation`.
+ * Whether no newer state change has started on a key since `generation`, and it hasn't disappeared.
  * @param key The key.
  * @param generation The generation from {@link nextGeneration}.
  * @returns True if the result for `generation` may still be shown.
  */
 function isCurrent(key: CommandKey, generation: number): boolean {
 	return stateGenerations.get(key.id) === generation;
+}
+
+/**
+ * Stops tracking a key that has disappeared (deleted, or scrolled off with a page or profile
+ * switch), so the plugin doesn't keep an entry for every key it has ever seen. Any sync or toggle
+ * still in flight for the key then leaves its state alone; it syncs again when it reappears.
+ * @param keyId The disappearing action instance's id.
+ */
+export function forgetKey(keyId: string): void {
+	stateGenerations.delete(keyId);
+}
+
+/**
+ * How many keys currently have a tracked generation.
+ * @returns The number of keys that have synced or been pressed and haven't disappeared since.
+ */
+export function trackedKeyCount(): number {
+	return stateGenerations.size;
 }
 
 /**
