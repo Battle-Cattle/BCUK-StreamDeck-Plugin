@@ -12,6 +12,8 @@ let context = null;
 let globals = { serverUrl: "", apiKey: "" };
 // The handler setupCatalogPage registered for the plugin's list messages, if the page has one.
 let catalogMessageHandler = null;
+// The pending timer that clears a success status, so a newer status can cancel it.
+let statusTimer = null;
 
 /**
  * Called by Stream Deck once the page has loaded.
@@ -115,6 +117,7 @@ function setupCatalogPage(options) {
 
 	return {
 		isLoaded: () => loaded,
+		/** Renders the last loaded list again; does nothing before one has loaded. */
 		redraw: () => {
 			if (loaded) draw();
 		},
@@ -286,9 +289,18 @@ function setStatus(msg, isOk = false) {
 	const el = document.getElementById("status");
 	// Leave Voice's page has no list, so no status line.
 	if (!el) return;
+	// A newer message replaces the old one, so the old one's timer mustn't clear it early.
+	if (statusTimer !== null) clearTimeout(statusTimer);
+	statusTimer = null;
 	el.textContent = msg;
 	el.className = isOk ? "ok" : "";
-	if (isOk) setTimeout(() => { el.textContent = ""; el.className = ""; }, 3000);
+	if (isOk) {
+		statusTimer = setTimeout(() => {
+			el.textContent = "";
+			el.className = "";
+			statusTimer = null;
+		}, 3000);
+	}
 }
 
 document.getElementById("serverUrl").addEventListener("change", saveGlobal);

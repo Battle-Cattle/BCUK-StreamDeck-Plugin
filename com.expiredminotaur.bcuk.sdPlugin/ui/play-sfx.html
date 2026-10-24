@@ -60,8 +60,19 @@
 	 */
 	function onButtonSettings(s) {
 		command = s.command || "";
-		// If the list already arrived, apply the saved selection now.
-		selectSaved(commandSelect, command, command, page.isLoaded());
+		// If the list already arrived, redraw it so the saved command is listed even when the
+		// search hides it (the redraw reselects it); otherwise just remember it for the load.
+		if (page.isLoaded()) page.redraw();
+		else selectSaved(commandSelect, command, command, false);
+	}
+
+	/**
+	 * Applies a search typed before the list arrived (or kept through a refresh) once it loads:
+	 * the load already drew the filtered list, so this only adds the count and the single-match pick.
+	 * @param {object} payload The plugin's message.
+	 */
+	function onPluginMessage(payload) {
+		if (payload.event === "commandsLoaded") showFilterResult();
 	}
 
 	/**
@@ -100,10 +111,16 @@
 	function applyFilter() {
 		if (!page.isLoaded()) return;
 		page.redraw();
-		if (!filterInput.value.trim()) {
-			setStatus("");
-			return;
-		}
+		if (filterInput.value.trim()) showFilterResult();
+		else setStatus("");
+	}
+
+	/**
+	 * Says how many commands the last render matched, and picks the command when only one did.
+	 * Does nothing while the search box is blank.
+	 */
+	function showFilterResult() {
+		if (!filterInput.value.trim()) return;
 		const { matches, total } = shown;
 		const only = matches.length === 1 ? matches[0] : undefined;
 		if (only && only.triggerCommand !== command) {

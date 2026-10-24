@@ -92,12 +92,19 @@ type CatalogPage = {
 function loadPage(ids: string[], pageScript = "") {
 	const elements = Object.fromEntries(ids.map((id) => [id, fakeElement()]));
 	const sent: Array<Record<string, unknown>> = [];
+	// Pending setTimeout callbacks by id, so a test can fire them or see them cancelled.
+	const timers = new Map<number, () => void>();
+	let nextTimer = 1;
 	const source = readFileSync(new URL("../com.expiredminotaur.bcuk.sdPlugin/ui/pi-common.js", import.meta.url), "utf8");
 	const context = createContext({
 		document: { getElementById: (id: string) => elements[id] ?? null, createElement: () => fakeElement() },
 		URL,
 		WebSocket: { OPEN: 1 },
-		setTimeout: () => 0,
+		setTimeout: (callback: () => void) => {
+			timers.set(nextTimer, callback);
+			return nextTimer++;
+		},
+		clearTimeout: (id: number) => timers.delete(id),
 	});
 	runInContext(source, context);
 	runInContext("ws = { readyState: 1, send: (m) => sentMessages.push(JSON.parse(m)) };", Object.assign(context, { sentMessages: sent }));
@@ -108,7 +115,13 @@ function loadPage(ids: string[], pageScript = "") {
 		if (!element) throw new Error(`The test page has no #${id}`);
 		return element;
 	};
-	return { pi: context as unknown as CatalogPage, el, sent };
+	// Fires every pending timer, as if their delays had all passed.
+	const runTimers = () => {
+		const pending = [...timers.values()];
+		timers.clear();
+		for (const callback of pending) callback();
+	};
+	return { pi: context as unknown as CatalogPage, el, sent, runTimers };
 }
 
 const catalogOptions = (render = vi.fn(), onLoaded = vi.fn()) => ({
@@ -208,6 +221,26 @@ describe("setStatus", () => {
 		const { pi } = loadPage(["serverUrl", "apiKey", "urlWarning"]);
 
 		expect(() => pi.setStatus("Fetching…")).not.toThrow();
+	});
+
+	it("clears a success message once its delay passes", () => {
+		const { pi, el, runTimers } = loadPage(["status", "serverUrl", "apiKey", "urlWarning"]);
+
+		pi.setStatus("Commands loaded.", true);
+		runTimers();
+
+		expect(el("status").textContent).toBe("");
+		expect(el("status").className).toBe("");
+	});
+
+	it("doesn't let an earlier success message's timer clear a newer message", () => {
+		const { pi, el, runTimers } = loadPage(["status", "serverUrl", "apiKey", "urlWarning"]);
+
+		pi.setStatus("Commands loaded.", true);
+		pi.setStatus("No commands match.");
+		runTimers();
+
+		expect(el("status").textContent).toBe("No commands match.");
 	});
 });
 
@@ -349,6 +382,37 @@ describe("Play SFX page", () => {
 
 		expect(groups()).toHaveLength(3);
 		expect(el("status").textContent).toBe("");
+	});
+
+	it("applies a search typed before the list loaded once it arrives", () => {
+		const page = loadPage(ids, inline);
+		const pi = page.pi as CatalogPage & { onButtonSettings: (s: Record<string, unknown>) => void };
+		pi.onButtonSettings({ command: "" });
+		page.el("filter").value = "cla";
+		page.el("filter").listeners.input?.();
+
+		pi.handlePluginMessage({ event: "commandsLoaded", triggers });
+
+		expect(page.el("command").value).toBe("!clap");
+		expect(page.el("status").textContent).toBe("1 of 4 commands match.");
+		const saved = page.sent.filter((m) => m.event === "setSettings").map((m) => ({ ...(m.payload as object) }));
+		expect(saved).toEqual([{ command: "!clap" }]);
+	});
+
+	it("keeps \"Commands loaded.\" when the list arrives with a blank search", () => {
+		const { el } = openPage();
+
+		expect(el("status").textContent).toBe("Commands loaded.");
+	});
+
+	it("lists a saved command in its category when settings arrive after a search hid it", () => {
+		const { pi, type, groups, el } = openPage();
+		type("zzz");
+
+		(pi as CatalogPage & { onButtonSettings: (s: Record<string, unknown>) => void }).onButtonSettings({ command: "!bonk" });
+
+		expect(groups()).toEqual([["Memes", "!bonk"]]);
+		expect(el("command").value).toBe("!bonk");
 	});
 
 	it("ignores the search box until the list has loaded", () => {
