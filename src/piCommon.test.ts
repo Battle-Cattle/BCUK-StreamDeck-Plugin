@@ -262,7 +262,9 @@ describe("groupByField", () => {
 
 describe("Play SFX page", () => {
 	const html = readFileSync(new URL("../com.expiredminotaur.bcuk.sdPlugin/ui/play-sfx.html", import.meta.url), "utf8");
-	const inline = /<script>([\s\S]*?)<\/script>/.exec(html)?.[1] ?? "";
+	// The page's own script is its one bare <script> (pi-common.js is loaded with a src).
+	const scriptStart = html.indexOf("<script>") + "<script>".length;
+	const inline = html.slice(scriptStart, html.indexOf("</script>", scriptStart));
 	const ids = ["command", "filter", "refreshBtn", "status", "serverUrl", "apiKey", "urlWarning"];
 	const triggers = [
 		{ triggerCommand: "!airhorn", categoryName: null },
