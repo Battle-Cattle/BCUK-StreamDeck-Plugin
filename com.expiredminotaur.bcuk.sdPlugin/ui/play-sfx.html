@@ -131,6 +131,8 @@
 		if (only && only.triggerCommand !== command) {
 			commandSelect.value = only.triggerCommand;
 			saveCommand();
+			// The list was drawn with the old saved command kept in it; draw it again without.
+			page.redraw();
 		}
 		if (matches.length === 0) setStatus("No commands match.");
 		else setStatus(`${matches.length} of ${total} commands match.`, true);

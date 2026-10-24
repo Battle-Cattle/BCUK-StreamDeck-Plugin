@@ -416,13 +416,24 @@ describe("Play SFX page", () => {
 	});
 
 	it("keeps a search's sole match picked when settings for another command arrive late", () => {
-		const { pi, type, el, saved } = openPage();
+		const { pi, type, el, saved, groups } = openPage();
 		type("cla");
 
 		(pi as CatalogPage & { onButtonSettings: (s: Record<string, unknown>) => void }).onButtonSettings({ command: "!bonk" });
 
 		expect(el("command").value).toBe("!clap");
 		expect(saved().at(-1)).toEqual({ command: "!clap" });
+		expect(groups()).toEqual([["Crowd", "!clap"]]);
+	});
+
+	it("drops the old saved command from the list when typing picks a sole match", () => {
+		const { type, groups, el, saved } = openPage("!bonk");
+
+		type("cla");
+
+		expect(groups()).toEqual([["Crowd", "!clap"]]);
+		expect(el("command").value).toBe("!clap");
+		expect(saved()).toEqual([{ command: "!clap" }]);
 	});
 
 	it("ignores the search box until the list has loaded", () => {
