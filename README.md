@@ -6,7 +6,7 @@ A Stream Deck plugin for controlling the **BCUK Discord bot** from your Stream D
 
 | Action | What it does |
 | --- | --- |
-| **Play SFX** | Triggers one of the bot's sound effects in the voice channel it's connected to (interrupts anything already playing). You need to be in a voice channel yourself, which picks the server; the sound plays in the bot's channel in that server, even if it's a different one from yours. |
+| **Play SFX** | Triggers one of the bot's sound effects in the voice channel it's connected to (interrupts anything already playing). You need to be in a voice channel yourself, which picks the server; the sound plays in the bot's channel in that server, even if it's a different one from yours. Its settings list the sounds by category, with a search box that filters them by command or category (and picks the sound when only one matches). |
 | **Join Voice** | Tells the bot to join a chosen voice channel. |
 | **Leave Voice** | Tells the bot to leave its current voice channel. |
 | **Trigger Command** | Fires one of your own advanced commands (set up on the bot's **Advanced Commands** page) for free — no point cost, cooldowns or limits. Shows an alert if the command is disabled or gone. |

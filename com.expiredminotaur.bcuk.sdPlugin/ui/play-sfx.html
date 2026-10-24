@@ -17,6 +17,10 @@
 	<input type="password" id="apiKey" placeholder="64-char hex key" autocomplete="off" spellcheck="false" />
 </div>
 <div class="row">
+	<label for="filter">Search</label>
+	<input type="search" id="filter" placeholder="Filter by command or category" autocomplete="off" spellcheck="false" />
+</div>
+<div class="row">
 	<label for="command">Command</label>
 	<select id="command">
 		<option value="">— select a command —</option>
@@ -30,10 +34,13 @@
 
 <script src="pi-common.js"></script>
 <script>
-	/* global selectSaved, setButtonSettings, setupCatalogPage */
+	/* global groupByField, matchesFilter, selectSaved, setButtonSettings, setStatus, setupCatalogPage */
 	// Per-button settings: just the command. The trigger list comes from the plugin.
 	const commandSelect = document.getElementById("command");
+	const filterInput = document.getElementById("filter");
 	let command = "";
+	// What the last render showed, for the filter's status line and its single-match pick.
+	let shown = { matches: [], total: 0 };
 
 	const page = setupCatalogPage({
 		selectId: "command",
@@ -58,23 +65,57 @@
 	}
 
 	/**
-	 * Lists the bot's sound effect commands, prefixed with their category.
-	 * @param {HTMLSelectElement} sel The emptied dropdown.
+	 * Lists the sound effect commands that match the search box, grouped by category. The button's
+	 * saved command is always listed, so a filter never hides what the key is set to.
+	 * @param {HTMLSelectElement} sel The dropdown, emptied apart from its placeholder.
 	 * @param {Array<{triggerCommand: string, categoryName?: string}>} triggers The commands from the plugin.
 	 */
 	function renderTriggers(sel, triggers) {
-		for (const t of triggers) {
-			const opt = document.createElement("option");
-			opt.value = t.triggerCommand;
-			opt.textContent = t.categoryName ? `[${t.categoryName}] ${t.triggerCommand}` : t.triggerCommand;
-			sel.appendChild(opt);
+		const matches = triggers.filter((t) => matchesFilter(filterInput.value, t.triggerCommand, t.categoryName));
+		shown = { matches, total: triggers.length };
+		const listed = triggers.filter((t) => t.triggerCommand === command || matches.includes(t));
+		for (const group of groupByField(listed, "categoryName")) {
+			const optgroup = document.createElement("optgroup");
+			optgroup.label = group.label || "Other";
+			for (const t of group.items) {
+				const opt = document.createElement("option");
+				opt.value = t.triggerCommand;
+				opt.textContent = t.triggerCommand;
+				optgroup.appendChild(opt);
+			}
+			sel.appendChild(optgroup);
 		}
 	}
 
-	commandSelect.addEventListener("change", () => {
+	/** Saves the dropdown's command as the button's. */
+	function saveCommand() {
 		command = commandSelect.value;
 		setButtonSettings({ command });
-	});
+	}
+
+	/**
+	 * Re-renders the list for the search box's text, says how many commands match, and picks the
+	 * command when only one does, so typing part of its name is enough.
+	 */
+	function applyFilter() {
+		if (!page.isLoaded()) return;
+		page.redraw();
+		if (!filterInput.value.trim()) {
+			setStatus("");
+			return;
+		}
+		const { matches, total } = shown;
+		const only = matches.length === 1 ? matches[0] : undefined;
+		if (only && only.triggerCommand !== command) {
+			commandSelect.value = only.triggerCommand;
+			saveCommand();
+		}
+		if (matches.length === 0) setStatus("No commands match.");
+		else setStatus(`${matches.length} of ${total} commands match.`, true);
+	}
+
+	filterInput.addEventListener("input", applyFilter);
+	commandSelect.addEventListener("change", saveCommand);
 </script>
 
 </body>
