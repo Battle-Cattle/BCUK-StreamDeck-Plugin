@@ -415,6 +415,16 @@ describe("Play SFX page", () => {
 		expect(el("command").value).toBe("!bonk");
 	});
 
+	it("keeps a search's sole match picked when settings for another command arrive late", () => {
+		const { pi, type, el, saved } = openPage();
+		type("cla");
+
+		(pi as CatalogPage & { onButtonSettings: (s: Record<string, unknown>) => void }).onButtonSettings({ command: "!bonk" });
+
+		expect(el("command").value).toBe("!clap");
+		expect(saved().at(-1)).toEqual({ command: "!clap" });
+	});
+
 	it("ignores the search box until the list has loaded", () => {
 		const page = loadPage(ids, inline);
 		page.el("filter").value = "boo";

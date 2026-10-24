@@ -61,9 +61,14 @@
 	function onButtonSettings(s) {
 		command = s.command || "";
 		// If the list already arrived, redraw it so the saved command is listed even when the
-		// search hides it (the redraw reselects it); otherwise just remember it for the load.
-		if (page.isLoaded()) page.redraw();
-		else selectSaved(commandSelect, command, command, false);
+		// search hides it (the redraw reselects it), then let a search with one match pick that
+		// match again, as typing it would; otherwise just remember the command for the load.
+		if (page.isLoaded()) {
+			page.redraw();
+			showFilterResult();
+		} else {
+			selectSaved(commandSelect, command, command, false);
+		}
 	}
 
 	/**
