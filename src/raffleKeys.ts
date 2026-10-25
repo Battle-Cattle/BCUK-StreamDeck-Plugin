@@ -1,4 +1,3 @@
-import type { JsonValue } from "@elgato/utils";
 import { QUICK_KEY_PRESS_TIMEOUT_MS } from "./api";
 import { alertNotConfigured, type FeedbackKey, pressRequest } from "./keyRequest";
 
@@ -10,7 +9,7 @@ import { alertNotConfigured, type FeedbackKey, pressRequest } from "./keyRequest
  * @param amount The stored `amount` setting.
  * @returns The trimmed amount text, or "" if it's missing, blank or not a string or finite number.
  */
-export function readAmount(amount: JsonValue | undefined): string {
+export function readAmount(amount: unknown): string {
 	if (typeof amount === "number") return Number.isFinite(amount) ? String(amount) : "";
 	return typeof amount === "string" ? amount.trim() : "";
 }
@@ -23,7 +22,7 @@ export function readAmount(amount: JsonValue | undefined): string {
  * @param amount The prize from the key's settings: any stored JSON, or undefined if it was never set.
  * @returns Resolves once the key shows the result.
  */
-export async function startRaffle(key: FeedbackKey, amount: JsonValue | undefined): Promise<void> {
+export async function startRaffle(key: FeedbackKey, amount: unknown): Promise<void> {
 	const trimmed = readAmount(amount);
 	if (trimmed === "") {
 		await alertNotConfigured(key, "Start Raffle: no amount configured.");

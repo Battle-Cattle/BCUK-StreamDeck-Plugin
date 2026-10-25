@@ -53,7 +53,7 @@ describe("readAmount", () => {
 		[{ value: 1 }, ""],
 		[Number.NaN, ""],
 	])("reads %j as %j", (stored, expected) => {
-		expect(readAmount(stored as never)).toBe(expected);
+		expect(readAmount(stored)).toBe(expected);
 	});
 });
 
