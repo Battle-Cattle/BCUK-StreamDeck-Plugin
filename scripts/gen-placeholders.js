@@ -89,6 +89,21 @@ function boltSvg(size, opacity = 0.9) {
 }
 
 /**
+ * Raffle ticket for start-raffle
+ * @param {number} size Width and height in pixels.
+ * @returns {Buffer} The SVG.
+ */
+function ticketSvg(size) {
+	const s = size;
+	return Buffer.from(`
+		<svg xmlns="http://www.w3.org/2000/svg" width="${s}" height="${s}" viewBox="0 0 24 24">
+			<rect width="24" height="24" fill="none"/>
+			<path d="M2 6h20v4a2 2 0 0 0 0 4v4H2v-4a2 2 0 0 0 0-4z" fill="white" opacity="0.9"/>
+			<path d="M15 7v10" stroke="rgb(45,45,45)" stroke-width="1.2" stroke-dasharray="1.5 1.5"/>
+		</svg>`);
+}
+
+/**
  * BCUK label SVG for marketplace / category icons
  * @param {number} size Width and height in pixels.
  * @returns {Buffer} The SVG.
@@ -191,6 +206,12 @@ await Promise.all([
 	makeIcon(`${root}/imgs/actions/toggle-command/key-on@2x.png`, 144, DARK, boltSvg(96)),
 	makeIcon(`${root}/imgs/actions/toggle-command/key-off.png`, 72, DARK_RED, boltSvg(48, 0.35)),
 	makeIcon(`${root}/imgs/actions/toggle-command/key-off@2x.png`, 144, DARK_RED, boltSvg(96, 0.35)),
+
+	// start-raffle
+	makeIcon(`${root}/imgs/actions/start-raffle/icon.png`, 28, DARK, ticketSvg(20)),
+	makeIcon(`${root}/imgs/actions/start-raffle/icon@2x.png`, 56, DARK, ticketSvg(40)),
+	makeIcon(`${root}/imgs/actions/start-raffle/key-default.png`, 72, DARK, ticketSvg(48)),
+	makeIcon(`${root}/imgs/actions/start-raffle/key-default@2x.png`, 144, DARK, ticketSvg(96)),
 ]);
 
 console.log("\nDone.");

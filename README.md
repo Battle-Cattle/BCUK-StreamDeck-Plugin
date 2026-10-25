@@ -11,8 +11,9 @@ A Stream Deck plugin for controlling the **BCUK Discord bot** from your Stream D
 | **Leave Voice** | Tells the bot to leave its current voice channel. |
 | **Trigger Command** | Fires one of your own advanced commands (set up on the bot's **Advanced Commands** page) for free — no point cost, cooldowns or limits. Shows an alert if the command is disabled or gone. |
 | **Toggle Command** | Enables or disables one of your advanced commands. The key shows the command's current state (bright bolt = enabled, dimmed = disabled). |
+| **Start Raffle** | Starts a 60-second loyalty-points raffle in your Twitch chat for the amount in its settings (e.g. `100` or `1K`), the same as typing `!raffle <amount>`. Viewers enter with `!join` in your own chat. Shows an alert if a raffle is already running or loyalty points are turned off. |
 
-Trigger Command and Toggle Command need your Stream Deck key's owner to be a monitored streamer on the bot.
+Trigger Command, Toggle Command and Start Raffle need your Stream Deck key's owner to be a monitored streamer on the bot. Start Raffle also needs Loyalty Points turned on.
 
 Each action is configured in the Stream Deck property inspector with the bot's **Server URL** (e.g. `https://bot.example.com`; a bare host is assumed to be HTTPS, except `localhost`/`127.0.0.1`, which is assumed to be plain HTTP; type `http://` explicitly for a LAN address) and an **API key** from the bot's web panel (**Streamdeck Key** page). Both are shared by every action. Installs from before 1.2 that saved a host and port keep working over plain HTTP until a Server URL is saved.
 

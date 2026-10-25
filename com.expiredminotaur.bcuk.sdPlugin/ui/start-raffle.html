@@ -1,0 +1,45 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+	<meta charset="utf-8" />
+	<title>Start Raffle</title>
+	<link rel="stylesheet" href="pi-common.css" />
+</head>
+<body>
+
+<div class="row">
+	<label for="serverUrl">Server URL</label>
+	<input type="text" id="serverUrl" placeholder="https://bot.example.com" autocomplete="off" spellcheck="false" />
+</div>
+<div id="urlWarning"></div>
+<div class="row">
+	<label for="apiKey">API Key</label>
+	<input type="password" id="apiKey" placeholder="64-char hex key" autocomplete="off" spellcheck="false" />
+</div>
+<div class="row">
+	<label for="amount">Points</label>
+	<input type="text" id="amount" placeholder="e.g. 100 or 1K" autocomplete="off" spellcheck="false" />
+</div>
+<div id="status">Starts a 60-second raffle in your Twitch chat. Viewers enter with !join in your own chat.</div>
+
+<script src="pi-common.js"></script>
+<script>
+	/* global setButtonSettings */
+	// Per-button settings: the prize, as typed (the bot parses 100, 1,000 or 1K).
+	const amountInput = document.getElementById("amount");
+
+	/**
+	 * Shows the button's saved amount (pi-common.js calls this when its settings arrive).
+	 * @param {{amount?: string}} s The button's settings.
+	 */
+	function onButtonSettings(s) {
+		amountInput.value = s.amount || "";
+	}
+
+	amountInput.addEventListener("change", () => {
+		setButtonSettings({ amount: amountInput.value.trim() });
+	});
+</script>
+
+</body>
+</html>

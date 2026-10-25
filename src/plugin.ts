@@ -5,6 +5,7 @@ import { JoinVoiceAction } from "./actions/join-voice";
 import { LeaveVoiceAction } from "./actions/leave-voice";
 import { TriggerCommandAction } from "./actions/trigger-command";
 import { ToggleCommandAction } from "./actions/toggle-command";
+import { StartRaffleAction } from "./actions/start-raffle";
 
 // Keep the pre-3.x settings behaviour: initGlobalSettings() relies on getGlobalSettings() firing
 // onDidReceiveGlobalSettings, and the new default would require Stream Deck 7.1+.
@@ -15,6 +16,7 @@ streamDeck.actions.registerAction(new JoinVoiceAction());
 streamDeck.actions.registerAction(new LeaveVoiceAction());
 streamDeck.actions.registerAction(new TriggerCommandAction());
 streamDeck.actions.registerAction(new ToggleCommandAction());
+streamDeck.actions.registerAction(new StartRaffleAction());
 streamDeck.connect().catch((err: unknown) => {
 	streamDeck.logger.error(`Couldn't connect to Stream Deck: ${err instanceof Error ? err.message : String(err)}`);
 });
