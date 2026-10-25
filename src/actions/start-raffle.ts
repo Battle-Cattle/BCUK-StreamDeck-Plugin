@@ -14,11 +14,14 @@ const DEFAULT_AMOUNT = "100";
 @action({ UUID: "com.expiredminotaur.bcuk.raffle" })
 export class StartRaffleAction extends SingletonAction<RaffleSettings> {
 	/**
-	 * Starts a raffle for the key's configured amount.
+	 * Starts a raffle for the key's configured amount, or the default when the key has never had
+	 * one (a press can arrive before `onWillAppear`'s default reaches the settings). A blank amount
+	 * that was saved on purpose is passed through, so it still gets the "no amount" alert.
 	 * @param ev The key press, carrying the button's settings.
 	 */
 	override async onKeyDown(ev: KeyDownEvent<RaffleSettings>): Promise<void> {
-		await startRaffle(ev.action, ev.payload.settings.amount);
+		const { amount } = ev.payload.settings;
+		await startRaffle(ev.action, amount === undefined ? DEFAULT_AMOUNT : amount);
 	}
 
 	/**
