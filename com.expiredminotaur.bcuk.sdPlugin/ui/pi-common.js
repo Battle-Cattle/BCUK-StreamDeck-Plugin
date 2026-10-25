@@ -12,6 +12,8 @@ let context = null;
 let globals = { serverUrl: "", apiKey: "" };
 // The handler setupCatalogPage registered for the plugin's list messages, if the page has one.
 let catalogMessageHandler = null;
+// The pending timer that clears a success status, so a newer status can cancel it.
+let statusTimer = null;
 
 /**
  * Called by Stream Deck once the page has loaded.
@@ -69,24 +71,33 @@ function handlePluginMessage(payload) {
  * @param {(select: HTMLSelectElement, items: Array<object>) => void} options.render Appends the
  *   items' options to the emptied dropdown.
  * @param {() => void} options.onLoaded Runs after each render, e.g. to reselect the saved value.
- * @returns {{isLoaded: () => boolean}} Whether the plugin's list has been loaded into the dropdown yet.
+ * @returns {{isLoaded: () => boolean, redraw: () => void}} `isLoaded` says whether the plugin's
+ *   list has been loaded into the dropdown yet; `redraw` renders the last loaded list again (e.g.
+ *   after the page's filter changes), and does nothing before a list has loaded.
  */
 function setupCatalogPage(options) {
 	const select = document.getElementById(options.selectId);
 	const refreshButton = document.getElementById("refreshBtn");
 	const capitalised = options.noun.charAt(0).toUpperCase() + options.noun.slice(1);
 	let loaded = false;
+	let items = [];
+
+	/** Empties the dropdown and renders the last loaded list after the placeholder. */
+	const draw = () => {
+		select.innerHTML = "";
+		const placeholder = document.createElement("option");
+		placeholder.value = "";
+		placeholder.textContent = options.placeholder;
+		select.appendChild(placeholder);
+		options.render(select, items);
+		options.onLoaded();
+	};
 
 	catalogMessageHandler = (payload) => {
 		if (payload.event === options.loadedEvent) {
-			select.innerHTML = "";
-			const placeholder = document.createElement("option");
-			placeholder.value = "";
-			placeholder.textContent = options.placeholder;
-			select.appendChild(placeholder);
-			options.render(select, payload[options.listKey] || []);
+			items = payload[options.listKey] || [];
 			loaded = true;
-			options.onLoaded();
+			draw();
 			setStatus(`${capitalised} loaded.`, true);
 		} else if (payload.event === options.errorEvent) {
 			setStatus(`Error: ${payload.error}`);
@@ -104,7 +115,48 @@ function setupCatalogPage(options) {
 		sendToPlugin({ event: options.refreshEvent, serverUrl, apiKey });
 	});
 
-	return { isLoaded: () => loaded };
+	return {
+		isLoaded: () => loaded,
+		/** Renders the last loaded list again; does nothing before one has loaded. */
+		redraw: () => {
+			if (loaded) draw();
+		},
+	};
+}
+
+/**
+ * Whether any of an item's fields contains the filter text, ignoring case and a leading "!" on the
+ * filter (so "clap" and "!clap" both find "!clap").
+ * @param {string} filter What the user typed; blank matches everything.
+ * @param {...(string|null|undefined)} fields The item's searchable text, e.g. its command and category.
+ * @returns {boolean} True when the filter is blank or found in at least one field.
+ */
+function matchesFilter(filter, ...fields) {
+	const needle = filter.trim().toLowerCase().replace(/^!/, "");
+	if (!needle) return true;
+	return fields.some((field) => typeof field === "string" && field.toLowerCase().includes(needle));
+}
+
+/**
+ * Groups a list by one of its fields, keeping the list's order within each group and the order in
+ * which groups first appear, with items that have no value for the field in a last group.
+ * @param {Array<object>} items The list, e.g. the bot's SFX triggers.
+ * @param {string} key The field to group by, e.g. "categoryName".
+ * @returns {Array<{label: string|null, items: Array<object>}>} One entry per distinct value, the
+ *   ungrouped items last under a null label.
+ */
+function groupByField(items, key) {
+	const groups = new Map();
+	for (const item of items) {
+		const label = typeof item[key] === "string" && item[key] ? item[key] : null;
+		if (!groups.has(label)) groups.set(label, []);
+		groups.get(label).push(item);
+	}
+	const ungrouped = groups.get(null);
+	groups.delete(null);
+	const result = [...groups].map(([label, grouped]) => ({ label, items: grouped }));
+	if (ungrouped) result.push({ label: null, items: ungrouped });
+	return result;
 }
 
 /**
@@ -237,9 +289,18 @@ function setStatus(msg, isOk = false) {
 	const el = document.getElementById("status");
 	// Leave Voice's page has no list, so no status line.
 	if (!el) return;
+	// A newer message replaces the old one, so the old one's timer mustn't clear it early.
+	if (statusTimer !== null) clearTimeout(statusTimer);
+	statusTimer = null;
 	el.textContent = msg;
 	el.className = isOk ? "ok" : "";
-	if (isOk) setTimeout(() => { el.textContent = ""; el.className = ""; }, 3000);
+	if (isOk) {
+		statusTimer = setTimeout(() => {
+			el.textContent = "";
+			el.className = "";
+			statusTimer = null;
+		}, 3000);
+	}
 }
 
 document.getElementById("serverUrl").addEventListener("change", saveGlobal);
