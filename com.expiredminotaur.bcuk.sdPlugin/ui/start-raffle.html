@@ -30,13 +30,14 @@
 
 	/**
 	 * Shows the button's saved amount (pi-common.js calls this when its settings arrive).
-	 * @param {{amount?: string}} s The button's settings.
+	 * @param {{amount?: string | number}} s The button's settings.
 	 */
 	function onButtonSettings(s) {
-		amountInput.value = s.amount || "";
+		amountInput.value = s.amount === undefined || s.amount === null ? "" : String(s.amount);
 	}
 
-	amountInput.addEventListener("change", () => {
+	// Save on every keystroke, so pressing the key with the field still focused uses the new amount.
+	amountInput.addEventListener("input", () => {
 		setButtonSettings({ amount: amountInput.value.trim() });
 	});
 </script>

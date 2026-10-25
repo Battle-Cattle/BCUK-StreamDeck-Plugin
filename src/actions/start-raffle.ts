@@ -1,8 +1,12 @@
 import { action, type KeyDownEvent, SingletonAction, type WillAppearEvent } from "@elgato/streamdeck";
+import type { JsonValue } from "@elgato/utils";
 import { startRaffle } from "../raffleKeys";
 
-/** Start Raffle's per-button settings, which may be `{}` before the property inspector saves any. */
-export type RaffleSettings = Partial<{ amount: string }>;
+/**
+ * Start Raffle's per-button settings: `{}` before the property inspector saves any, and the amount
+ * is whatever JSON was stored (the inspector saves a string; `startRaffle` checks it).
+ */
+export type RaffleSettings = Partial<{ amount: JsonValue }>;
 
 /** The prize a new Start Raffle key starts with. */
 const DEFAULT_AMOUNT = "100";

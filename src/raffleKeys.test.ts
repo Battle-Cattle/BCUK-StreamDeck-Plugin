@@ -7,7 +7,7 @@ vi.mock("./api", async () => (await import("./test-utils/actionMocks")).apiModul
 
 import streamDeck from "@elgato/streamdeck";
 import { apiRequest, logFailure } from "./api";
-import { startRaffle } from "./raffleKeys";
+import { readAmount, startRaffle } from "./raffleKeys";
 
 beforeEach(() => vi.clearAllMocks());
 
@@ -39,6 +39,39 @@ describe("startRaffle", () => {
 
 		expect(apiRequest).not.toHaveBeenCalled();
 		expect(streamDeck.logger.warn).toHaveBeenCalledWith("Start Raffle: no amount configured.");
+		expect(key.showAlert).toHaveBeenCalled();
+	});
+});
+
+describe("readAmount", () => {
+	it.each([
+		[" 1K ", "1K"],
+		[250, "250"],
+		[undefined, ""],
+		[null, ""],
+		[true, ""],
+		[{ value: 1 }, ""],
+		[Number.NaN, ""],
+	])("reads %j as %j", (stored, expected) => {
+		expect(readAmount(stored as never)).toBe(expected);
+	});
+});
+
+describe("startRaffle with non-string settings", () => {
+	it("sends a stored number as text", async () => {
+		vi.mocked(apiRequest).mockResolvedValue({ ok: true, data: { ok: true, amount: 100 } });
+
+		await startRaffle(fakeAction(), 100);
+
+		expect(apiRequest).toHaveBeenCalledWith(expect.anything(), "/raffle", { amount: "100" }, 5000);
+	});
+
+	it("alerts instead of throwing for a stored value that isn't an amount", async () => {
+		const key = fakeAction();
+
+		await startRaffle(key, { amount: 100 });
+
+		expect(apiRequest).not.toHaveBeenCalled();
 		expect(key.showAlert).toHaveBeenCalled();
 	});
 });
