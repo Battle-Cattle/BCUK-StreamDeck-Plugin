@@ -1,6 +1,6 @@
 {
 	"Name": "BCUK Bot",
-	"Version": "1.5.0.0",
+	"Version": "1.6.0.0",
 	"Author": "BCUK",
 	"Description": "Control BCUK Bot directly from your Stream Deck.",
 	"Icon": "imgs/plugin/marketplace",
@@ -107,6 +107,22 @@
 				{
 					"Image": "imgs/actions/toggle-command/key-off",
 					"Name": "Disabled"
+				}
+			]
+		},
+		{
+			"Name": "Start Raffle",
+			"UUID": "com.expiredminotaur.bcuk.raffle",
+			"Icon": "imgs/actions/start-raffle/icon",
+			"Tooltip": "Give away loyalty points: viewers type !join in your chat for 60 seconds.",
+			"PropertyInspectorPath": "ui/start-raffle.html",
+			"Controllers": [
+				"Keypad"
+			],
+			"States": [
+				{
+					"Image": "imgs/actions/start-raffle/key-default",
+					"Name": "Default"
 				}
 			]
 		}
