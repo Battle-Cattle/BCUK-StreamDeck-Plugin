@@ -36,7 +36,7 @@ jobs:
       - run: npm run build
       - name: Publish coverage to Qlty
         if: always()
-        uses: qltysh/qlty-action/coverage@v2
+        uses: qltysh/qlty-action/coverage@ebcd284bf32e36a030afe15f1e136c7be08b9506 # v2.5.0
         with:
           oidc: true
           files: coverage/lcov.info
