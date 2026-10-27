@@ -11,6 +11,10 @@ permissions:
 jobs:
   check:
     runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      # Lets qlty-action exchange GitHub's OIDC token for a Qlty upload, instead of a stored coverage token.
+      id-token: write
     # A new push to a pull request cancels that PR's run still in progress. A push to main gets a
     # group of its own commit, so no merged commit's check is cancelled or skipped.
     concurrency:
@@ -28,8 +32,14 @@ jobs:
       - run: npm ci
       - run: npm run typecheck
       - run: npm run lint
-      - run: npm test
+      - run: npm run test:coverage
       - run: npm run build
+      - name: Publish coverage to Qlty
+        if: always()
+        uses: qltysh/qlty-action/coverage@v2
+        with:
+          oidc: true
+          files: coverage/lcov.info
       - name: Validate the plugin package
         run: npx streamdeck pack com.expiredminotaur.bcuk.sdPlugin --dry-run --no-update-check
       # The release job packs exactly this build instead of rebuilding.
