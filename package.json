@@ -10,7 +10,8 @@
     "pack": "streamdeck pack com.expiredminotaur.bcuk.sdPlugin --force",
     "typecheck": "tsc --noEmit",
     "lint": "eslint .",
-    "test": "vitest run"
+    "test": "vitest run",
+    "test:coverage": "vitest run --coverage"
   },
   "dependencies": {
     "@elgato/streamdeck": "^3.0.3"
@@ -20,6 +21,7 @@
     "@eslint/js": "^10.0.1",
     "@tsconfig/node24": "^24.0.5",
     "@types/node": "^24.19.2",
+    "@vitest/coverage-v8": "^5.0.5",
     "@vitest/eslint-plugin": "^1.6.28",
     "eslint": "^10.13.0",
     "eslint-plugin-html": "^8.2.1",

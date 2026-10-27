@@ -28,8 +28,15 @@ jobs:
       - run: npm ci
       - run: npm run typecheck
       - run: npm run lint
-      - run: npm test
+      - run: npm run test:coverage
       - run: npm run build
+      # The coverage job below publishes this to Qlty.
+      - name: Keep lcov coverage for the Qlty upload
+        uses: actions/upload-artifact@v7
+        with:
+          name: coverage-lcov
+          path: coverage/lcov.info
+          retention-days: 1
       - name: Validate the plugin package
         run: npx streamdeck pack com.expiredminotaur.bcuk.sdPlugin --dry-run --no-update-check
       # The release job packs exactly this build instead of rebuilding.
@@ -41,6 +48,36 @@ jobs:
           path: com.expiredminotaur.bcuk.sdPlugin/bin
           if-no-files-found: error
           retention-days: 1
+
+  # Publishes coverage in a job of its own, so only this job can mint the OIDC token qlty-action
+  # trades for a Qlty upload; the install, build and test steps in check never see it. GitHub gives
+  # fork and Dependabot pull requests no OIDC token, and qlty-action fails the job when it can't
+  # get one, so those runs skip the upload.
+  # It also waits for its test job to pass: a failed one leaves no report to upload.
+  coverage:
+    needs: check
+    if: >-
+      needs.check.result == 'success' &&
+      (github.event_name != 'pull_request' ||
+       (github.event.pull_request.head.repo.full_name == github.repository && github.actor != 'dependabot[bot]'))
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      id-token: write
+    steps:
+      # Qlty checks the report's source paths against the checkout.
+      - uses: actions/checkout@v7
+        with:
+          persist-credentials: false
+      - uses: actions/download-artifact@v8
+        with:
+          name: coverage-lcov
+          path: coverage
+      - name: Publish coverage to Qlty
+        uses: qltysh/qlty-action/coverage@ebcd284bf32e36a030afe15f1e136c7be08b9506 # v2.5.0
+        with:
+          oidc: true
+          files: coverage/lcov.info
 
   # Publishes the packed plugin as a GitHub Release whenever main carries a manifest version
   # that hasn't been released yet. The bot's web panel links to the latest release's asset, so

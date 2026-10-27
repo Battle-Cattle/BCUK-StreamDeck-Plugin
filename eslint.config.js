@@ -39,7 +39,7 @@ const jsdocRules = {
 
 export default tseslint.config(
 	{
-		ignores: ["node_modules/**", "dist/**", "com.expiredminotaur.bcuk.sdPlugin/bin/**", "eslint.config.js"],
+		ignores: ["node_modules/**", "dist/**", "coverage/**", "com.expiredminotaur.bcuk.sdPlugin/bin/**", "eslint.config.js"],
 	},
 	js.configs.recommended,
 	{

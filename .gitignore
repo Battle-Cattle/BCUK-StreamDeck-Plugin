@@ -1,4 +1,5 @@
 node_modules/
+coverage/
 com.expiredminotaur.bcuk.sdPlugin/bin/
 *.streamDeckPlugin
 .claude/settings.local.json
