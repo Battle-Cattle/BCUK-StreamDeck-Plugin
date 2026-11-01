@@ -42,6 +42,11 @@ describe("CatalogAction", () => {
 		expect(streamDeck.logger.warn).toHaveBeenCalledWith(expect.stringContaining("refreshThings"));
 	});
 
+	it.each([["null", null], ["missing", undefined], ["an array", ["refreshThings"]], ["a string", "refreshThings"]])("ignores a message whose payload is %s", async (_name, payload) => {
+		await expect(new TestAction(catalog as never).onSendToPlugin(fakeEvent(payload))).resolves.toBeUndefined();
+		expect(catalog.refresh).not.toHaveBeenCalled();
+	});
+
 	it("ignores any other inspector message", async () => {
 		await new TestAction(catalog as never).onSendToPlugin(
 			fakeEvent({ event: "refreshCommands", serverUrl: "https://bot.example", apiKey: "k" }),

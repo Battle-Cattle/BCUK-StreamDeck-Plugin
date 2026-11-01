@@ -203,9 +203,24 @@ function saveGlobal() {
 function updateUrlWarning() {
 	const el = document.getElementById("urlWarning");
 	if (!el) return;
-	const url = globals.serverUrl;
-	const insecure = /^http:\/\//i.test(url) && !isLoopbackUrl(url);
+	const insecure = isPlainHttpToRemote(globals.serverUrl);
 	el.textContent = insecure ? "Plain HTTP sends your API key unencrypted. Use https:// if the bot has it." : "";
+}
+
+/**
+ * Whether a Server URL sends the API key over plain HTTP to another machine. A URL that doesn't
+ * parse doesn't count: the plugin rejects it and never sends the key.
+ * @param {string} url The Server URL as typed.
+ * @returns {boolean} True for a parseable http:// URL whose host isn't this machine.
+ */
+function isPlainHttpToRemote(url) {
+	let parsed;
+	try {
+		parsed = new URL(url);
+	} catch {
+		return false;
+	}
+	return parsed.protocol === "http:" && !isLoopbackUrl(url);
 }
 
 /**
