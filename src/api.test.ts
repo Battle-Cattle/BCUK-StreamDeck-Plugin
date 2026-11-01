@@ -259,12 +259,13 @@ describe("initGlobalSettings's initial request", () => {
 
 	it("keeps a save that arrives before the reply", async () => {
 		const { sd, api } = await freshApi();
-		let reply!: (settings: Record<string, string>) => void;
+		let reply: ((settings: Record<string, string>) => void) | undefined;
 		vi.mocked(sd.settings.getGlobalSettings).mockReturnValueOnce(new Promise((resolve) => { reply = resolve; }) as never);
 		api.initGlobalSettings();
-		const onSettings = vi.mocked(sd.settings.onDidReceiveGlobalSettings).mock.calls.at(-1)![0] as (
-			ev: { settings: Record<string, unknown> },
-		) => void;
+		const onSettings = vi.mocked(sd.settings.onDidReceiveGlobalSettings).mock.calls.at(-1)?.[0] as
+			| ((ev: { settings: Record<string, unknown> }) => void)
+			| undefined;
+		if (!onSettings || !reply) throw new Error("initGlobalSettings didn't register a listener and request the settings");
 		onSettings({ settings: { serverUrl: "https://saved.example", apiKey: "new" } });
 		reply({ serverUrl: "https://stale.example", apiKey: "old" });
 		await new Promise((resolve) => setTimeout(resolve, 0));
