@@ -8,7 +8,7 @@ import { vi } from "vitest";
 export function streamDeckModuleMock() {
 	const streamDeck = {
 		logger: { info: vi.fn(), warn: vi.fn(), error: vi.fn() },
-		settings: { onDidReceiveGlobalSettings: vi.fn(), getGlobalSettings: vi.fn() },
+		settings: { onDidReceiveGlobalSettings: vi.fn(), getGlobalSettings: vi.fn(() => Promise.resolve({})) },
 		ui: { sendToPropertyInspector: vi.fn() },
 		actions: { registerAction: vi.fn() },
 		connect: vi.fn(() => Promise.resolve()),

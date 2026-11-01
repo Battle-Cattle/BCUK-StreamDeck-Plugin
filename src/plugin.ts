@@ -7,9 +7,6 @@ import { TriggerCommandAction } from "./actions/trigger-command";
 import { ToggleCommandAction } from "./actions/toggle-command";
 import { StartRaffleAction } from "./actions/start-raffle";
 
-// Keep the pre-3.x settings behaviour: initGlobalSettings() relies on getGlobalSettings() firing
-// onDidReceiveGlobalSettings, and the new default would require Stream Deck 7.1+.
-streamDeck.settings.useLegacySettingsBehavior = true;
 initGlobalSettings();
 streamDeck.actions.registerAction(new PlaySfxAction());
 streamDeck.actions.registerAction(new JoinVoiceAction());

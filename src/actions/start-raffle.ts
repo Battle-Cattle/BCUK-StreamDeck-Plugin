@@ -1,5 +1,6 @@
 import { action, type KeyDownEvent, SingletonAction, type WillAppearEvent } from "@elgato/streamdeck";
 import type { JsonValue } from "@elgato/utils";
+import { fillMissingSettings } from "../buttonSettings";
 import { startRaffle } from "../raffleKeys";
 
 /**
@@ -29,6 +30,6 @@ export class StartRaffleAction extends SingletonAction<RaffleSettings> {
 	 * @param ev The appearing key, carrying the button's settings.
 	 */
 	override async onWillAppear(ev: WillAppearEvent<RaffleSettings>): Promise<void> {
-		if (!("amount" in ev.payload.settings)) await ev.action.setSettings({ amount: DEFAULT_AMOUNT });
+		await fillMissingSettings(ev.action, ev.payload.settings, { amount: DEFAULT_AMOUNT });
 	}
 }

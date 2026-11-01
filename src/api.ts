@@ -1,11 +1,7 @@
 import type { JsonObject, JsonValue } from "@elgato/utils";
 import streamDeck from "@elgato/streamdeck";
 
-/**
- * Plugin-wide settings shared by every action, edited from any action's property inspector.
- * `host`/`port` are the pre-1.2 fields, still read so existing installs keep working until the
- * user saves a Server URL.
- */
+/** Plugin-wide settings shared by every action, edited from any action's property inspector. */
 export interface GlobalSettings extends JsonObject {
 	[key: string]: JsonValue;
 	serverUrl: string;
@@ -34,23 +30,36 @@ export const QUICK_KEY_PRESS_TIMEOUT_MS = 5_000;
 
 let globalSettings: GlobalSettings = { serverUrl: "", apiKey: "" };
 let globalSettingsLoaded = false;
-// The last Server URL warned about as plain HTTP to another machine, so a settings re-send doesn't
-// repeat the warning.
+// Every Server URL already warned about as plain HTTP to another machine, so a settings re-send (or
+// switching back to one) doesn't repeat the warning.
 const warnedInsecureUrls = new Set<string>();
 const globalSettingsListeners = new Set<() => void>();
 
 /**
- * Starts tracking the global settings. Call once, before `streamDeck.connect()`. Stream Deck
- * re-sends them whenever a property inspector saves, so the cached copy stays current.
+ * Starts tracking the global settings. Call once, before `streamDeck.connect()`. Stream Deck sends
+ * them in reply to the initial request and again whenever a property inspector saves, so the cached
+ * copy stays current.
  */
 export function initGlobalSettings(): void {
-	streamDeck.settings.onDidReceiveGlobalSettings((ev) => {
-		globalSettings = migrateGlobalSettings(ev.settings);
-		globalSettingsLoaded = true;
-		warnIfInsecure(globalSettings.serverUrl);
-		for (const listener of globalSettingsListeners) listener();
-	});
-	void streamDeck.settings.getGlobalSettings();
+	streamDeck.settings.onDidReceiveGlobalSettings((ev) => applyGlobalSettings(ev.settings));
+	streamDeck.settings.getGlobalSettings().then(
+		// A save that arrived while the request was in flight is newer, so the reply mustn't replace it.
+		(settings) => {
+			if (!globalSettingsLoaded) applyGlobalSettings(settings);
+		},
+		(err: unknown) => streamDeck.logger.error(`Couldn't read the global settings: ${String(err)}`),
+	);
+}
+
+/**
+ * Caches a delivery of the global settings and tells the listeners.
+ * @param raw The settings as stored by Stream Deck.
+ */
+function applyGlobalSettings(raw: JsonObject): void {
+	globalSettings = readGlobalSettings(raw);
+	globalSettingsLoaded = true;
+	warnIfInsecure(globalSettings.serverUrl);
+	for (const listener of globalSettingsListeners) listener();
 }
 
 /**
@@ -78,38 +87,32 @@ export function getConnection(): Connection {
 }
 
 /**
- * Reads raw global settings, falling back to the legacy `host`/`port` pair (always plain HTTP,
- * as the old plugin did) when no `serverUrl` has been saved yet.
+ * Reads raw global settings, ignoring fields of the wrong type.
  * @param raw Settings as stored by Stream Deck.
- * @returns The trimmed Server URL (or one built from `host`/`port`, or empty) and the API key
- *   (empty if unset).
+ * @returns The trimmed Server URL and the API key, each empty if unset.
  */
-export function migrateGlobalSettings(raw: JsonObject): GlobalSettings {
-	const apiKey = typeof raw.apiKey === "string" ? raw.apiKey : "";
-	if (typeof raw.serverUrl === "string" && raw.serverUrl.trim()) {
-		return { serverUrl: raw.serverUrl.trim(), apiKey };
-	}
-	if (typeof raw.host === "string" && raw.host.trim()) {
-		const port = typeof raw.port === "number" ? raw.port : 3000;
-		return { serverUrl: `http://${raw.host.trim()}:${port}`, apiKey };
-	}
-	return { serverUrl: "", apiKey };
+export function readGlobalSettings(raw: JsonObject): GlobalSettings {
+	return {
+		serverUrl: typeof raw.serverUrl === "string" ? raw.serverUrl.trim() : "",
+		apiKey: typeof raw.apiKey === "string" ? raw.apiKey : "",
+	};
 }
 
 /**
  * Logs a warning (once per URL) when the Server URL sends the API key over plain HTTP to another
- * machine, e.g. after migrating pre-1.2 `host`/`port` settings, which were always plain HTTP. The
- * property inspector shows the same warning, but only while it's open.
+ * machine. The property inspector shows the same warning, but only while it's open.
  * Only the URL's origin is logged, so credentials, a query or a token in the path stay out of
  * the log.
  * @param serverUrl The Server URL in use.
  */
 function warnIfInsecure(serverUrl: string): void {
-	const url = normalizeServerUrl(serverUrl);
-	if (!url || !isPlainHttpToRemote(serverUrl) || warnedInsecureUrls.has(url)) return;
-	warnedInsecureUrls.add(url);
+	const baseUrl = normalizeServerUrl(serverUrl);
+	if (!baseUrl || warnedInsecureUrls.has(baseUrl)) return;
+	const url = new URL(baseUrl);
+	if (!isPlainHttpUrlToRemote(url)) return;
+	warnedInsecureUrls.add(baseUrl);
 	streamDeck.logger.warn(
-		`Server URL ${new URL(url).origin} uses plain HTTP to another machine, so the API key is sent unencrypted. Use https:// if the bot has it.`,
+		`Server URL ${url.origin} uses plain HTTP to another machine, so the API key is sent unencrypted. Use https:// if the bot has it.`,
 	);
 }
 
@@ -120,9 +123,28 @@ function warnIfInsecure(serverUrl: string): void {
  */
 export function isPlainHttpToRemote(serverUrl: string): boolean {
 	const baseUrl = normalizeServerUrl(serverUrl);
-	if (!baseUrl) return false;
-	const url = new URL(baseUrl);
+	return baseUrl !== null && isPlainHttpUrlToRemote(new URL(baseUrl));
+}
+
+/**
+ * Whether a parsed URL is plain HTTP to a host other than this machine.
+ * @param url A normalised Server URL.
+ * @returns True for `http:` to a non-loopback host.
+ */
+function isPlainHttpUrlToRemote(url: URL): boolean {
 	return url.protocol === "http:" && !isLoopbackHost(url.hostname);
+}
+
+/**
+ * Identifies the bot and key a request or list belongs to, so a settings change doesn't reuse a
+ * result fetched for another bot or key. The Server URL is normalised first, so a cosmetic edit
+ * (a trailing slash, an explicit default scheme) still counts as the same bot.
+ * @param conn Server URL and API key.
+ * @returns The normalised Server URL (or the raw one if it's invalid) and the API key, joined by a
+ *   newline, for equality checks.
+ */
+export function connectionKey(conn: Connection): string {
+	return `${normalizeServerUrl(conn.serverUrl) ?? conn.serverUrl}\n${conn.apiKey}`;
 }
 
 /**

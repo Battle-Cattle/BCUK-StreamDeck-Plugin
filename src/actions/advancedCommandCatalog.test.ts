@@ -14,7 +14,6 @@ import { createAdvancedCommandCatalog } from "./advancedCommandCatalog";
 type Options = {
 	path: string;
 	parse: (body: Record<string, unknown>) => unknown;
-	key: (command: { id: number }) => string;
 	loadedEvent: string;
 	errorEvent: string;
 	listKey: string;
@@ -29,7 +28,6 @@ describe("createAdvancedCommandCatalog", () => {
 		expect(options.loadedEvent).toBe("commandsLoaded");
 		expect(options.errorEvent).toBe("commandsError");
 		expect(options.listKey).toBe("commands");
-		expect(options.key({ id: 7 })).toBe("7");
 	});
 
 	it("parses the commands list, and rejects a body without one", () => {

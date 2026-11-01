@@ -160,35 +160,28 @@ function groupByField(items, key) {
 }
 
 /**
- * Reads stored global settings, turning the pre-1.2 host/port pair into a Server URL so the
- * field shows what the plugin is actually using.
+ * Shows the stored global settings in the connection fields.
  * @param {object} s The stored global settings.
  */
 function applyGlobalSettings(s) {
-	globals = migrateGlobalSettings(s);
+	globals = readGlobalSettings(s);
 	document.getElementById("serverUrl").value = globals.serverUrl;
 	document.getElementById("apiKey").value = globals.apiKey;
 	updateUrlWarning();
 }
 
 /**
- * Reads raw global settings, falling back to the legacy host/port pair (always plain HTTP) when no
- * Server URL has been saved yet. Must match the plugin's migrateGlobalSettings (src/api.ts):
- * src/piCommon.test.ts runs the same cases against both.
+ * Reads raw global settings, ignoring fields of the wrong type. Must match the plugin's
+ * readGlobalSettings (src/api.ts): src/piCommon.test.ts runs the same cases against both.
  * @param {object} raw Settings as stored by Stream Deck.
- * @returns {{serverUrl: string, apiKey: string}} The trimmed Server URL (or one built from
- *   host/port, or empty) and the API key (empty if unset).
+ * @returns {{serverUrl: string, apiKey: string}} The trimmed Server URL and the API key, each
+ *   empty if unset.
  */
-function migrateGlobalSettings(raw) {
-	const apiKey = typeof raw.apiKey === "string" ? raw.apiKey : "";
-	if (typeof raw.serverUrl === "string" && raw.serverUrl.trim()) {
-		return { serverUrl: raw.serverUrl.trim(), apiKey };
-	}
-	if (typeof raw.host === "string" && raw.host.trim()) {
-		const port = typeof raw.port === "number" ? raw.port : 3000;
-		return { serverUrl: `http://${raw.host.trim()}:${port}`, apiKey };
-	}
-	return { serverUrl: "", apiKey };
+function readGlobalSettings(raw) {
+	return {
+		serverUrl: typeof raw.serverUrl === "string" ? raw.serverUrl.trim() : "",
+		apiKey: typeof raw.apiKey === "string" ? raw.apiKey : "",
+	};
 }
 
 /**
@@ -210,9 +203,24 @@ function saveGlobal() {
 function updateUrlWarning() {
 	const el = document.getElementById("urlWarning");
 	if (!el) return;
-	const url = globals.serverUrl;
-	const insecure = /^http:\/\//i.test(url) && !isLoopbackUrl(url);
+	const insecure = isPlainHttpToRemote(globals.serverUrl);
 	el.textContent = insecure ? "Plain HTTP sends your API key unencrypted. Use https:// if the bot has it." : "";
+}
+
+/**
+ * Whether a Server URL sends the API key over plain HTTP to another machine. A URL that doesn't
+ * parse doesn't count: the plugin rejects it and never sends the key.
+ * @param {string} url The Server URL as typed.
+ * @returns {boolean} True for a parseable http:// URL whose host isn't this machine.
+ */
+function isPlainHttpToRemote(url) {
+	let parsed;
+	try {
+		parsed = new URL(url);
+	} catch {
+		return false;
+	}
+	return parsed.protocol === "http:" && !isLoopbackUrl(url);
 }
 
 /**

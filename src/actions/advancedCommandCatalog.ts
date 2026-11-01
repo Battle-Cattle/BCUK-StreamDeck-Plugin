@@ -21,7 +21,6 @@ export function createAdvancedCommandCatalog(): InspectorCatalog<AdvancedCommand
 		label: "advanced commands",
 		path: "/advanced-commands",
 		parse: (body) => (Array.isArray(body.commands) ? toAdvancedCommands(body.commands) : null),
-		key: (command) => String(command.id),
 		loadedEvent: "commandsLoaded",
 		errorEvent: "commandsError",
 		listKey: "commands",

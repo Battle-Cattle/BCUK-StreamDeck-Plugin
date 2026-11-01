@@ -6,10 +6,10 @@ import { globalSettingsCases, loopbackHostCases } from "./test-utils/globalSetti
 
 vi.mock("@elgato/streamdeck", () => streamDeckModuleMock());
 
-import { isLoopbackHost, migrateGlobalSettings } from "./api";
+import { isLoopbackHost, readGlobalSettings } from "./api";
 
 type PiCommon = {
-	migrateGlobalSettings: (raw: unknown) => { serverUrl: string; apiKey: string };
+	readGlobalSettings: (raw: unknown) => { serverUrl: string; apiKey: string };
 	isLoopbackUrl: (url: string) => boolean;
 };
 
@@ -27,9 +27,9 @@ const pi = loadPiCommon();
 
 describe("global settings: plugin and property inspector agree", () => {
 	it.each(globalSettingsCases)("$name", ({ raw, expected }) => {
-		expect(migrateGlobalSettings(raw)).toEqual(expected);
+		expect(readGlobalSettings(raw)).toEqual(expected);
 		// The PI's object comes from another realm, so compare its fields rather than the object.
-		expect({ ...pi.migrateGlobalSettings(raw) }).toEqual(expected);
+		expect({ ...pi.readGlobalSettings(raw) }).toEqual(expected);
 	});
 });
 
@@ -213,6 +213,26 @@ describe("setupCatalogPage", () => {
 		expect(el("status").textContent).toBe("Fetching commands…");
 		expect(sent.map((m) => m.event)).toEqual(["setGlobalSettings", "sendToPlugin"]);
 		expect({ ...sent[1]?.payload as object }).toEqual({ event: "refreshCommands", serverUrl: "https://bot.example", apiKey: "k" });
+	});
+});
+
+describe("plain-HTTP warning", () => {
+	const warning = "Plain HTTP sends your API key unencrypted. Use https:// if the bot has it.";
+
+	it.each([
+		["http://bot.lan:3000", warning],
+		["HTTP://203.0.113.7", warning],
+		["http://localhost:3000", ""],
+		["https://bot.example", ""],
+		["bot.lan:3000", ""],
+		["http://", ""],
+		["", ""],
+	])("%s → %j", (serverUrl, expected) => {
+		const { pi, el } = loadPage(["serverUrl", "apiKey", "urlWarning"]);
+
+		(pi as unknown as { applyGlobalSettings: (s: Record<string, string>) => void }).applyGlobalSettings({ serverUrl, apiKey: "k" });
+
+		expect(el("urlWarning").textContent).toBe(expected);
 	});
 });
 

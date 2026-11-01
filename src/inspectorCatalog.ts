@@ -3,6 +3,7 @@ import streamDeck from "@elgato/streamdeck";
 import {
 	apiRequest,
 	type Connection,
+	connectionKey,
 	getConnection,
 	hasGlobalSettings,
 	logFailure,
@@ -20,8 +21,6 @@ export interface InspectorCatalogOptions<T extends JsonValue> {
 	 * the body has no list at all, which is reported as an error instead of an empty list.
 	 */
 	parse: (body: JsonObject) => T[] | null;
-	/** Identifies an entry, for merging lists seeded from several legacy buttons. */
-	key: (item: T) => string;
 	/** Message event names the property inspector listens for, and the payload key for the list. */
 	loadedEvent: string;
 	errorEvent: string;
@@ -35,8 +34,7 @@ export interface InspectorCatalogOptions<T extends JsonValue> {
  */
 export class InspectorCatalog<T extends JsonValue> {
 	private items: T[] = [];
-	// The connection `items` were fetched with, or null for items seeded from legacy button
-	// settings (which predate any connection change, so they're accepted as-is).
+	// The connection `items` were fetched with, or null before any list has loaded.
 	private loadedFor: string | null = null;
 	// Bumped per fetch, so only the newest of overlapping fetches is applied.
 	private latestRequest = 0;
@@ -55,27 +53,13 @@ export class InspectorCatalog<T extends JsonValue> {
 	}
 
 	/**
-	 * Adds entries from legacy per-button settings that aren't already in the list (matched by
-	 * `key`). Each legacy button carried its own snapshot, so later buttons can add entries.
-	 * @param items Entries parsed from one button's legacy settings.
-	 */
-	seed(items: T[]): void {
-		// A list fetched from the bot is authoritative; legacy lists on buttons that appear later
-		// (e.g. on another page) mustn't add stale entries to it.
-		if (this.loadedFor !== null) return;
-		const { key } = this.options;
-		const seen = new Set(this.items.map(key));
-		this.items = [...this.items, ...items.filter((item) => !seen.has(key(item)))];
-	}
-
-	/**
 	 * Called when a property inspector opens: sends the loaded list, or fetches it first if
 	 * nothing has been loaded since the plugin started and an API key is configured.
 	 */
 	async show(): Promise<void> {
 		const conn = getConnection();
 		// A list fetched from a different bot or with a different key is no longer valid.
-		if (this.loadedFor !== null && this.loadedFor !== connectionId(conn)) {
+		if (this.loadedFor !== null && this.loadedFor !== connectionKey(conn)) {
 			this.items = [];
 			this.loadedFor = null;
 		}
@@ -97,15 +81,15 @@ export class InspectorCatalog<T extends JsonValue> {
 	async refresh(conn: Connection): Promise<void> {
 		const { label, path, parse, loadedEvent, errorEvent, listKey } = this.options;
 		const request = ++this.latestRequest;
-		const startedUnder = connectionId(getConnection());
+		const startedUnder = connectionKey(getConnection());
 		const result = await apiRequest<JsonObject>(conn, path);
 		// A newer fetch has started since (e.g. Refresh while the auto-fetch was pending).
 		if (request !== this.latestRequest) return;
 		// The saved connection changed while this was in flight, and this response isn't for the
 		// new one: drop it rather than show another bot's list. (A Refresh carries the inspector's
 		// new values, which can arrive before their settings echo, so those are still accepted.)
-		const current = connectionId(getConnection());
-		if (current !== startedUnder && current !== connectionId(conn)) {
+		const current = connectionKey(getConnection());
+		if (current !== startedUnder && current !== connectionKey(conn)) {
 			streamDeck.logger.info(`Discarding ${label} fetched for a previous connection`);
 			return;
 		}
@@ -121,7 +105,7 @@ export class InspectorCatalog<T extends JsonValue> {
 			return;
 		}
 		this.items = items;
-		this.loadedFor = connectionId(conn);
+		this.loadedFor = connectionKey(conn);
 		streamDeck.logger.info(`Fetched ${this.items.length} ${label}`);
 		await this.send({ event: loadedEvent, [listKey]: this.items });
 	}
@@ -133,13 +117,4 @@ export class InspectorCatalog<T extends JsonValue> {
 	private async send(message: JsonObject): Promise<void> {
 		await streamDeck.ui.sendToPropertyInspector(message);
 	}
-}
-
-/**
- * Identifies the bot and key a list was fetched with.
- * @param conn Server URL and API key.
- * @returns The Server URL and API key joined by a newline, for equality checks.
- */
-function connectionId(conn: Connection): string {
-	return `${conn.serverUrl}\n${conn.apiKey}`;
 }

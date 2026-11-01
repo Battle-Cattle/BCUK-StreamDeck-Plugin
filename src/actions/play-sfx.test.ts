@@ -42,19 +42,6 @@ describe("PlaySfxAction", () => {
 		expect(logFailure).toHaveBeenCalledWith('Play SFX "!gone"', expect.objectContaining({ ok: false }));
 	});
 
-	it("folds a pre-1.2 button's trigger list into the catalog and drops it from the button", async () => {
-		const sfx = new PlaySfxAction();
-		const catalog = catalogs.instances.at(-1)!;
-		const action = fakeAction();
-
-		await sfx.onWillAppear(fakeEvent({
-			settings: { command: "!clap", cachedTriggers: [{ triggerCommand: "!clap", categoryName: "Fun" }, { bogus: true }] },
-		}, action));
-
-		expect(catalog.seed).toHaveBeenCalledWith([{ triggerCommand: "!clap", categoryName: "Fun" }]);
-		expect(action.setSettings).toHaveBeenCalledWith({ command: "!clap" });
-	});
-
 	it("gives a new button an empty command, and leaves a current one alone", async () => {
 		const sfx = new PlaySfxAction();
 		const fresh = fakeAction();

@@ -1,5 +1,5 @@
 import type { JsonValue } from "@elgato/utils";
-import { apiRequest, type ApiResult, type Connection, QUICK_KEY_PRESS_TIMEOUT_MS } from "./api";
+import { apiRequest, type ApiResult, type Connection, connectionKey, QUICK_KEY_PRESS_TIMEOUT_MS } from "./api";
 
 /** The bot's `GET /advanced-commands` response body. */
 export type AdvancedCommandListBody = { commands?: JsonValue };
@@ -43,13 +43,13 @@ export async function fetchAdvancedCommandList(connection: Connection): Promise<
  * @returns The list request's result.
  */
 function sharedRequest(connection: Connection): Promise<ApiResult<AdvancedCommandListBody>> {
-	const connectionKey = `${connection.serverUrl}\n${connection.apiKey}`;
-	if (latest?.connectionKey === connectionKey && isReusable(latest)) {
+	const key = connectionKey(connection);
+	if (latest?.connectionKey === key && isReusable(latest)) {
 		return latest.result;
 	}
 
 	const entry: Entry = {
-		connectionKey,
+		connectionKey: key,
 		settledAt: null,
 		result: apiRequest<AdvancedCommandListBody>(connection, "/advanced-commands", undefined, QUICK_KEY_PRESS_TIMEOUT_MS),
 	};

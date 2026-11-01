@@ -2,7 +2,8 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 import { streamDeckModuleMock } from "./test-utils/streamdeckMock";
 
 vi.mock("@elgato/streamdeck", () => streamDeckModuleMock());
-vi.mock("./api", () => ({
+vi.mock("./api", async (importOriginal) => ({
+	connectionKey: (await importOriginal<typeof import("./api")>()).connectionKey,
 	apiRequest: vi.fn(),
 	getConnection: vi.fn(),
 	logFailure: vi.fn(),
@@ -22,7 +23,6 @@ function makeCatalog() {
 		label: "things",
 		path: "/things",
 		parse: (body) => (Array.isArray(body.things) ? body.things.filter((t): t is string => typeof t === "string") : null),
-		key: (thing) => thing,
 		loadedEvent: "thingsLoaded",
 		errorEvent: "thingsError",
 		listKey: "things",
@@ -67,15 +67,6 @@ describe("InspectorCatalog", () => {
 		await makeCatalog().show();
 		expect(apiRequest).not.toHaveBeenCalled();
 		expect(send).not.toHaveBeenCalled();
-	});
-
-	it("merges seeded items from several legacy buttons without duplicates", async () => {
-		const catalog = makeCatalog();
-		catalog.seed(["a", "b"]);
-		catalog.seed(["b", "c"]);
-		await catalog.show();
-		expect(apiRequest).not.toHaveBeenCalled();
-		expect(send).toHaveBeenLastCalledWith({ event: "thingsLoaded", things: ["a", "b", "c"] });
 	});
 
 	it("refetches when the server URL or API key has changed since the list was loaded", async () => {
@@ -168,13 +159,15 @@ describe("InspectorCatalog", () => {
 		expect(send).toHaveBeenLastCalledWith({ event: "thingsLoaded", things: ["a"] });
 	});
 
-	it("ignores legacy seeds once a list has been fetched", async () => {
-		vi.mocked(apiRequest).mockResolvedValueOnce({ ok: true, data: { things: ["fresh"] } });
+	it("keeps the list when the saved Server URL differs only cosmetically", async () => {
+		vi.mocked(apiRequest).mockResolvedValueOnce({ ok: true, data: { things: ["a"] } });
 		const catalog = makeCatalog();
 		await catalog.refresh(conn);
-		catalog.seed(["stale"]);
+
+		vi.mocked(getConnection).mockReturnValue({ serverUrl: "bot.example/", apiKey: "k" });
 		await catalog.show();
-		expect(send).toHaveBeenLastCalledWith({ event: "thingsLoaded", things: ["fresh"] });
+		expect(apiRequest).toHaveBeenCalledTimes(1);
+		expect(send).toHaveBeenLastCalledWith({ event: "thingsLoaded", things: ["a"] });
 	});
 
 	it("drops a stale list without fetching when the new connection has no key", async () => {
