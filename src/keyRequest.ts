@@ -41,11 +41,8 @@ export async function alertNotConfigured(key: FeedbackKey, message: string): Pro
  * @returns The request's result, for a caller that needs the response.
  */
 export async function pressRequest<T>(key: FeedbackKey, request: PressRequest<T>): Promise<ApiResult<T>> {
-	const conn = getConnection();
-	// Leave the timeout argument off entirely when none is given, so apiRequest's default applies.
-	const result = request.timeoutMs === undefined
-		? await apiRequest<T>(conn, request.path, request.body)
-		: await apiRequest<T>(conn, request.path, request.body, request.timeoutMs);
+	// An undefined timeout leaves apiRequest's default in place.
+	const result = await apiRequest<T>(getConnection(), request.path, request.body, request.timeoutMs);
 	if (result.ok) {
 		request.onOk?.(result.data);
 		await key.showOk();

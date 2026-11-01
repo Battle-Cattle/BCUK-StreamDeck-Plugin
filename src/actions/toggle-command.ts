@@ -7,6 +7,7 @@ import {
 } from "@elgato/streamdeck";
 import type { AdvancedCommand } from "../advancedCommands";
 import { forgetKey, syncToggleState, toggleCommand } from "../advancedCommandKeys";
+import { fillMissingSettings } from "../buttonSettings";
 import { type CommandSettings, createAdvancedCommandCatalog } from "./advancedCommandCatalog";
 import { CatalogAction } from "./catalogAction";
 
@@ -30,10 +31,8 @@ export class ToggleCommandAction extends CatalogAction<CommandSettings, Advanced
 	 * @param ev The appearance event, carrying the button's saved command id (missing on a new button).
 	 */
 	override async onWillAppear(ev: WillAppearEvent<CommandSettings>): Promise<void> {
-		if (!("commandId" in ev.payload.settings)) {
-			await ev.action.setSettings({ commandId: "" });
-			return;
-		}
+		// A new button has no command to show yet.
+		if (await fillMissingSettings(ev.action, ev.payload.settings, { commandId: "" })) return;
 		if (ev.action.isKey()) await syncToggleState(ev.action, ev.payload.settings.commandId);
 	}
 

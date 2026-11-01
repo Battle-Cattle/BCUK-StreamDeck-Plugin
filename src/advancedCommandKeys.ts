@@ -1,6 +1,6 @@
 import type { JsonValue } from "@elgato/utils";
 import { apiRequest, getConnection, logFailure, QUICK_KEY_PRESS_TIMEOUT_MS } from "./api";
-import { alertNotConfigured, pressRequest } from "./keyRequest";
+import { alertNotConfigured, type FeedbackKey, pressRequest } from "./keyRequest";
 import { fetchAdvancedCommandList, invalidateAdvancedCommandList } from "./advancedCommandList";
 import { parseCommandId, toAdvancedCommands } from "./advancedCommands";
 
@@ -8,11 +8,9 @@ import { parseCommandId, toAdvancedCommands } from "./advancedCommands";
 // shared by both actions and easy to test without building an action instance.
 
 /** The parts of a Stream Deck key these handlers use. */
-export interface CommandKey {
+export interface CommandKey extends FeedbackKey {
 	/** The action instance's id: stable for one key, used to discard superseded state syncs. */
 	readonly id: string;
-	showOk(): Promise<void>;
-	showAlert(): Promise<void>;
 	setState(state: 0 | 1): Promise<void>;
 }
 
@@ -118,18 +116,32 @@ export async function toggleCommand(key: CommandKey, savedId: JsonValue | undefi
 	const result = await apiRequest<{ isEnabled?: JsonValue }>(
 		getConnection(), "/advanced-commands/enabled", { commandId }, QUICK_KEY_PRESS_TIMEOUT_MS,
 	);
-	if (result.ok) {
-		// The command's state changed, so a shared list fetched before the press is out of date.
-		invalidateAdvancedCommandList();
-	}
-	if (result.ok && typeof result.data.isEnabled === "boolean") {
-		// The press did take effect, so the OK is still shown; only the state of a command the key
-		// no longer shows is skipped.
-		if (isCurrent(key, generation)) await key.setState(stateFor(result.data.isEnabled));
-		await key.showOk();
+	if (!result.ok) {
+		await failToggle(key, commandId, result);
 		return;
 	}
-	logFailure(`Toggle Command ${commandId}`, result.ok ? { status: null, error: "Response had no isEnabled" } : result);
+	// The command's state changed, so a shared list fetched before the press is out of date.
+	invalidateAdvancedCommandList();
+	const { isEnabled } = result.data;
+	if (typeof isEnabled !== "boolean") {
+		await failToggle(key, commandId, { status: null, error: "Response had no isEnabled" });
+		return;
+	}
+	// The press did take effect, so the OK is still shown; only the state of a command the key no
+	// longer shows is skipped.
+	if (isCurrent(key, generation)) await key.setState(stateFor(isEnabled));
+	await key.showOk();
+}
+
+/**
+ * Logs a failed toggle press and shows an alert on its key.
+ * @param key The pressed key.
+ * @param commandId The command the press tried to toggle.
+ * @param failure The failure's status (null when there was none) and error text.
+ * @returns Resolves once the alert is shown.
+ */
+async function failToggle(key: CommandKey, commandId: number, failure: { status: number | null; error: string }): Promise<void> {
+	logFailure(`Toggle Command ${commandId}`, failure);
 	await key.showAlert();
 }
 

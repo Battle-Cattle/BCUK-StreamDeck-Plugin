@@ -4,6 +4,7 @@ import { catalogMock, fakeEvent } from "../test-utils/actionMocks";
 
 vi.mock("@elgato/streamdeck", () => streamDeckModuleMock());
 
+import streamDeck from "@elgato/streamdeck";
 import type { InspectorCatalog } from "../inspectorCatalog";
 import { CatalogAction } from "./catalogAction";
 
@@ -30,6 +31,15 @@ describe("CatalogAction", () => {
 		);
 
 		expect(catalog.refresh).toHaveBeenCalledWith({ serverUrl: "https://bot.example", apiKey: "k" });
+	});
+
+	it.each([
+		["no Server URL", { event: "refreshThings", apiKey: "k" }],
+		["a non-string API key", { event: "refreshThings", serverUrl: "https://bot.example", apiKey: 5 }],
+	])("logs and ignores a refresh with %s", async (_name, payload) => {
+		await new TestAction(catalog as never).onSendToPlugin(fakeEvent(payload));
+		expect(catalog.refresh).not.toHaveBeenCalled();
+		expect(streamDeck.logger.warn).toHaveBeenCalledWith(expect.stringContaining("refreshThings"));
 	});
 
 	it("ignores any other inspector message", async () => {

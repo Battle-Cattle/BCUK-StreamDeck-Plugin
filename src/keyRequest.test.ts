@@ -39,12 +39,12 @@ describe("pressRequest", () => {
 		expect(result).toEqual({ ok: true, data: { joined: true } });
 	});
 
-	it("leaves the timeout off when none is given, so the API default applies", async () => {
+	it("passes an undefined timeout when none is given, so the API default applies", async () => {
 		vi.mocked(apiRequest).mockResolvedValue({ ok: true, data: {} });
 
 		await pressRequest(fakeAction(), { label: "Join Voice", path: "/voice/join", body: { channelId: "c1" } });
 
-		expect(vi.mocked(apiRequest).mock.calls[0]).toHaveLength(3);
+		expect(vi.mocked(apiRequest).mock.calls[0]?.[3]).toBeUndefined();
 	});
 
 	it("logs a failure under its label and shows an alert, without running onOk", async () => {

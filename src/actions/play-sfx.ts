@@ -3,6 +3,7 @@ import { action, type KeyDownEvent, type WillAppearEvent } from "@elgato/streamd
 import { QUICK_KEY_PRESS_TIMEOUT_MS } from "../api";
 import { InspectorCatalog } from "../inspectorCatalog";
 import { alertNotConfigured, pressRequest } from "../keyRequest";
+import { fillMissingSettings } from "../buttonSettings";
 import { type SfxTrigger, toSfxTriggers } from "../sfxTriggers";
 import { CatalogAction } from "./catalogAction";
 
@@ -14,12 +15,6 @@ interface PlaySfxSettings extends JsonObject {
 	command: string;
 }
 
-// Settings saved by plugin versions <= 1.1.0, which stored the whole trigger catalog on every
-// button. Read only so onWillAppear can migrate them away.
-interface LegacyPlaySfxSettings extends PlaySfxSettings {
-	cachedTriggers?: JsonValue;
-}
-
 @action({ UUID: "com.expiredminotaur.bcuk.play" })
 export class PlaySfxAction extends CatalogAction<PlaySfxSettings, SfxTrigger> {
 	/** Creates the action with its SFX command dropdown list. */
@@ -29,7 +24,6 @@ export class PlaySfxAction extends CatalogAction<PlaySfxSettings, SfxTrigger> {
 				label: "commands",
 				path: "/sfx",
 				parse: (body) => (Array.isArray(body.triggers) ? toSfxTriggers(body.triggers) : null),
-				key: (trigger) => trigger.triggerCommand,
 				loadedEvent: "commandsLoaded",
 				errorEvent: "commandsError",
 				listKey: "triggers",
@@ -52,19 +46,10 @@ export class PlaySfxAction extends CatalogAction<PlaySfxSettings, SfxTrigger> {
 	}
 
 	/**
-	 * Migrates a button's settings to hold only its command, folding any legacy per-button
-	 * trigger list into the shared catalog first.
-	 * @param ev The appearance event, carrying the button's saved (possibly empty or legacy) settings.
+	 * Gives a new button an empty command setting, so later events carry the expected shape.
+	 * @param ev The appearance event, carrying the button's saved settings (`{}` on a new button).
 	 */
 	override async onWillAppear(ev: WillAppearEvent<PlaySfxSettings>): Promise<void> {
-		// A new button's settings are `{}`, so any field may be missing.
-		const settings = ev.payload.settings as Partial<LegacyPlaySfxSettings>;
-		this.catalog.seed(toSfxTriggers(settings.cachedTriggers));
-		// Rewrite settings that have no command field yet (a new button) or still carry the legacy
-		// catalog, so every later event for this button carries only the command. A button that
-		// already holds `command: ""` is left alone rather than rewritten on every appearance.
-		if (!("command" in settings) || "cachedTriggers" in settings) {
-			await ev.action.setSettings({ command: settings.command ?? "" });
-		}
+		await fillMissingSettings(ev.action, ev.payload.settings, { command: "" });
 	}
 }

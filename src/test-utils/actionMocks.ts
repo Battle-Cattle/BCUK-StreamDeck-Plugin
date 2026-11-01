@@ -31,15 +31,14 @@ export function fakeEvent<T>(payload: T, action = fakeAction()) {
 export interface CatalogSpy {
 	show: ReturnType<typeof vi.fn>;
 	refresh: ReturnType<typeof vi.fn>;
-	seed: ReturnType<typeof vi.fn>;
 }
 
 /**
- * A fresh mocked catalog: `show`, `refresh` and `seed` are `vi.fn()` spies.
+ * A fresh mocked catalog: `show` and `refresh` are `vi.fn()` spies.
  * @returns The spy object, shaped like an `InspectorCatalog`.
  */
 export function catalogMock(): CatalogSpy {
-	return { show: vi.fn(), refresh: vi.fn(), seed: vi.fn() };
+	return { show: vi.fn(), refresh: vi.fn() };
 }
 
 /**
@@ -53,7 +52,6 @@ export function inspectorCatalogModuleMock(instances: CatalogSpy[]) {
 		InspectorCatalog: class implements CatalogSpy {
 			show = vi.fn();
 			refresh = vi.fn();
-			seed = vi.fn();
 			constructor() {
 				instances.push(this);
 			}

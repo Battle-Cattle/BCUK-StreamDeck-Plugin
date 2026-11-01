@@ -2,7 +2,8 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { streamDeckModuleMock } from "./test-utils/streamdeckMock";
 
 vi.mock("@elgato/streamdeck", () => streamDeckModuleMock());
-vi.mock("./api", () => ({
+vi.mock("./api", async (importOriginal) => ({
+	connectionKey: (await importOriginal<typeof import("./api")>()).connectionKey,
 	apiRequest: vi.fn(),
 	getConnection: vi.fn(() => ({ serverUrl: "https://bot.example", apiKey: "k" })),
 	logFailure: vi.fn(),

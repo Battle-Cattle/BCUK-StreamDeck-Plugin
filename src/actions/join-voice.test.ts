@@ -23,7 +23,7 @@ describe("JoinVoiceAction", () => {
 
 		await new JoinVoiceAction().onKeyDown(fakeEvent({ settings: { channelId: "c1", guildId: "g1" } }, action));
 
-		expect(apiRequest).toHaveBeenCalledWith(expect.anything(), "/voice/join", { channelId: "c1" });
+		expect(apiRequest).toHaveBeenCalledWith(expect.anything(), "/voice/join", { channelId: "c1" }, undefined);
 		expect(action.showOk).toHaveBeenCalled();
 		expect(getLastJoinedGuildId()).toBe("g1");
 	});
@@ -60,24 +60,13 @@ describe("JoinVoiceAction", () => {
 
 	it.each([
 		["a new button", {}, { channelId: "", guildId: "" }],
-		["a pre-1.2 button with its channel list", { channelId: "c1", guildId: "g1", cachedChannels: [] }, { channelId: "c1", guildId: "g1" }],
 		["a button saved without its server", { channelId: "c1" }, { channelId: "c1", guildId: "" }],
-	])("migrates %s to the current settings shape", async (_name, settings, expected) => {
+	])("fills in %s's missing fields", async (_name, settings, expected) => {
 		const action = fakeAction();
 
 		await new JoinVoiceAction().onWillAppear(fakeEvent({ settings }, action));
 
 		expect(action.setSettings).toHaveBeenCalledWith(expected);
-	});
-
-	it("drops a legacy channel list without seeding the catalog from it", async () => {
-		const join = new JoinVoiceAction();
-		const catalog = catalogs.instances.at(-1)!;
-		const cachedChannels = [{ id: "c1", name: "General" }];
-
-		await join.onWillAppear(fakeEvent({ settings: { channelId: "c1", guildId: "g1", cachedChannels } }));
-
-		expect(catalog.seed).not.toHaveBeenCalled();
 	});
 
 	it("leaves current settings alone, even with no channel chosen", async () => {

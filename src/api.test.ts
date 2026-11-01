@@ -7,8 +7,8 @@ vi.mock("@elgato/streamdeck", () => streamDeckModuleMock());
 
 import streamDeck from "@elgato/streamdeck";
 import {
-	apiRequest, describeNetworkError, initGlobalSettings, isLoopbackHost, isPlainHttpToRemote, migrateGlobalSettings,
-	normalizeServerUrl,
+	apiRequest, connectionKey, describeNetworkError, initGlobalSettings, isLoopbackHost, isPlainHttpToRemote, normalizeServerUrl,
+	readGlobalSettings,
 } from "./api";
 
 describe("normalizeServerUrl", () => {
@@ -57,20 +57,31 @@ describe("isLoopbackHost", () => {
 	});
 });
 
-describe("migrateGlobalSettings", () => {
-	it("prefers a saved serverUrl", () => {
-		expect(migrateGlobalSettings({ serverUrl: "https://a.example", host: "old", port: 1, apiKey: "k" }))
+describe("readGlobalSettings", () => {
+	it("reads a saved Server URL and API key", () => {
+		expect(readGlobalSettings({ serverUrl: " https://a.example ", apiKey: "k" }))
 			.toEqual({ serverUrl: "https://a.example", apiKey: "k" });
 	});
 
-	it("builds a plain-HTTP URL from legacy host/port", () => {
-		expect(migrateGlobalSettings({ host: "bot.lan", port: 3001, apiKey: "k" }))
-			.toEqual({ serverUrl: "http://bot.lan:3001", apiKey: "k" });
+	it("no longer builds a URL from the pre-1.2 host/port fields", () => {
+		expect(readGlobalSettings({ host: "bot.lan", port: 3001, apiKey: "k" })).toEqual({ serverUrl: "", apiKey: "k" });
+	});
+});
+
+describe("connectionKey", () => {
+	it("treats cosmetic Server URL differences as the same bot", () => {
+		expect(connectionKey({ serverUrl: "bot.example.com", apiKey: "k" }))
+			.toBe(connectionKey({ serverUrl: "https://bot.example.com/", apiKey: "k" }));
 	});
 
-	it("defaults the legacy port to 3000 and tolerates empty settings", () => {
-		expect(migrateGlobalSettings({ host: "bot.lan" }).serverUrl).toBe("http://bot.lan:3000");
-		expect(migrateGlobalSettings({})).toEqual({ serverUrl: "", apiKey: "" });
+	it("tells different bots and keys apart", () => {
+		const base = connectionKey({ serverUrl: "https://a.example", apiKey: "k" });
+		expect(connectionKey({ serverUrl: "https://b.example", apiKey: "k" })).not.toBe(base);
+		expect(connectionKey({ serverUrl: "https://a.example", apiKey: "k2" })).not.toBe(base);
+	});
+
+	it("falls back to the raw text for an invalid Server URL", () => {
+		expect(connectionKey({ serverUrl: "ftp://x", apiKey: "k" })).toBe("ftp://x\nk");
 	});
 });
 
@@ -177,9 +188,9 @@ describe("describeNetworkError", () => {
 });
 
 describe("isPlainHttpToRemote", () => {
-	it("flags plain HTTP to another machine, including migrated legacy settings", () => {
+	it("flags plain HTTP to another machine", () => {
 		expect(isPlainHttpToRemote("http://192.168.1.5:3000")).toBe(true);
-		expect(isPlainHttpToRemote(migrateGlobalSettings({ host: "bot.lan" }).serverUrl)).toBe(true);
+		expect(isPlainHttpToRemote("http://bot.lan:3000")).toBe(true);
 	});
 
 	it("allows https, any loopback address, and an unset or invalid URL", () => {
@@ -200,8 +211,8 @@ describe("initGlobalSettings", () => {
 		) => void;
 		vi.mocked(streamDeck.logger.warn).mockClear();
 
-		onSettings({ settings: { host: "bot.lan", port: 3000, apiKey: "k" } });
-		onSettings({ settings: { host: "bot.lan", port: 3000, apiKey: "k" } });
+		onSettings({ settings: { serverUrl: "http://bot.lan:3000", apiKey: "k" } });
+		onSettings({ settings: { serverUrl: "http://bot.lan:3000/", apiKey: "k" } });
 		expect(streamDeck.logger.warn).toHaveBeenCalledTimes(1);
 		expect(vi.mocked(streamDeck.logger.warn).mock.calls[0]![0]).toContain("http://bot.lan:3000");
 
@@ -225,5 +236,45 @@ describe("initGlobalSettings", () => {
 		expect(first).not.toContain("secret");
 		expect(first).not.toContain("token");
 		expect(first).not.toContain("pathsecret");
+	});
+});
+
+describe("initGlobalSettings's initial request", () => {
+	// Fresh copies of the module and its streamDeck mock, so no earlier delivery has been cached.
+	async function freshApi() {
+		vi.resetModules();
+		const { default: sd } = await import("@elgato/streamdeck");
+		const api = await import("./api");
+		return { sd, api };
+	}
+
+	it("uses the reply, without relying on it firing onDidReceiveGlobalSettings", async () => {
+		const { sd, api } = await freshApi();
+		vi.mocked(sd.settings.getGlobalSettings).mockResolvedValueOnce({ serverUrl: "https://reply.example", apiKey: "r" });
+		expect(api.hasGlobalSettings()).toBe(false);
+		api.initGlobalSettings();
+		await vi.waitFor(() => expect(api.getConnection()).toEqual({ serverUrl: "https://reply.example", apiKey: "r" }));
+		expect(api.hasGlobalSettings()).toBe(true);
+	});
+
+	it("keeps a save that arrives before the reply", async () => {
+		const { sd, api } = await freshApi();
+		let reply!: (settings: Record<string, string>) => void;
+		vi.mocked(sd.settings.getGlobalSettings).mockReturnValueOnce(new Promise((resolve) => { reply = resolve; }) as never);
+		api.initGlobalSettings();
+		const onSettings = vi.mocked(sd.settings.onDidReceiveGlobalSettings).mock.calls.at(-1)![0] as (
+			ev: { settings: Record<string, unknown> },
+		) => void;
+		onSettings({ settings: { serverUrl: "https://saved.example", apiKey: "new" } });
+		reply({ serverUrl: "https://stale.example", apiKey: "old" });
+		await new Promise((resolve) => setTimeout(resolve, 0));
+		expect(api.getConnection()).toEqual({ serverUrl: "https://saved.example", apiKey: "new" });
+	});
+
+	it("logs a failed request", async () => {
+		const { sd, api } = await freshApi();
+		vi.mocked(sd.settings.getGlobalSettings).mockRejectedValueOnce(new Error("socket closed"));
+		api.initGlobalSettings();
+		await vi.waitFor(() => expect(sd.logger.error).toHaveBeenCalledWith(expect.stringContaining("socket closed")));
 	});
 });

@@ -6,10 +6,10 @@ import { globalSettingsCases, loopbackHostCases } from "./test-utils/globalSetti
 
 vi.mock("@elgato/streamdeck", () => streamDeckModuleMock());
 
-import { isLoopbackHost, migrateGlobalSettings } from "./api";
+import { isLoopbackHost, readGlobalSettings } from "./api";
 
 type PiCommon = {
-	migrateGlobalSettings: (raw: unknown) => { serverUrl: string; apiKey: string };
+	readGlobalSettings: (raw: unknown) => { serverUrl: string; apiKey: string };
 	isLoopbackUrl: (url: string) => boolean;
 };
 
@@ -27,9 +27,9 @@ const pi = loadPiCommon();
 
 describe("global settings: plugin and property inspector agree", () => {
 	it.each(globalSettingsCases)("$name", ({ raw, expected }) => {
-		expect(migrateGlobalSettings(raw)).toEqual(expected);
+		expect(readGlobalSettings(raw)).toEqual(expected);
 		// The PI's object comes from another realm, so compare its fields rather than the object.
-		expect({ ...pi.migrateGlobalSettings(raw) }).toEqual(expected);
+		expect({ ...pi.readGlobalSettings(raw) }).toEqual(expected);
 	});
 });
 
