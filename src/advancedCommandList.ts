@@ -1,5 +1,6 @@
 import type { JsonValue } from "@elgato/utils";
-import { apiRequest, type ApiResult, type Connection, connectionKey, QUICK_KEY_PRESS_TIMEOUT_MS } from "./api";
+import { apiRequest, type ApiResult, QUICK_KEY_PRESS_TIMEOUT_MS } from "./apiClient";
+import { type Connection, connectionKey } from "./serverUrl";
 
 /** The bot's `GET /advanced-commands` response body. */
 export type AdvancedCommandListBody = { commands?: JsonValue };

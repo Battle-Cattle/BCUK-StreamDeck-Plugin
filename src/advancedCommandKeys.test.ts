@@ -2,18 +2,19 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 import { streamDeckModuleMock } from "./test-utils/streamdeckMock";
 
 vi.mock("@elgato/streamdeck", () => streamDeckModuleMock());
-vi.mock("./api", async () => (await import("./test-utils/actionMocks")).apiModuleMock());
+vi.mock("./apiClient", async () => (await import("./test-utils/actionMocks")).apiClientModuleMock());
+vi.mock("./globalSettings", async () => (await import("./test-utils/actionMocks")).globalSettingsModuleMock());
 // No sharing here, so each sync makes its own request and these tests control every response;
 // advancedCommandList.test.ts covers the sharing.
 vi.mock("./advancedCommandList", async () => {
-	const api = await import("./api");
+	const api = await import("./apiClient");
 	return {
 		fetchAdvancedCommandList: vi.fn((connection: unknown) => api.apiRequest(connection as never, "/advanced-commands", undefined, 5000)),
 		invalidateAdvancedCommandList: vi.fn(),
 	};
 });
 
-import { apiRequest, logFailure } from "./api";
+import { apiRequest, logFailure } from "./apiClient";
 import { invalidateAdvancedCommandList } from "./advancedCommandList";
 import { forgetKey, stateFor, syncToggleState, toggleCommand, trackedKeyCount, triggerCommand } from "./advancedCommandKeys";
 

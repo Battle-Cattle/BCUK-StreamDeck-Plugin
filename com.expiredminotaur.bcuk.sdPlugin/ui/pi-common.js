@@ -172,7 +172,7 @@ function applyGlobalSettings(s) {
 
 /**
  * Reads raw global settings, ignoring fields of the wrong type. Must match the plugin's
- * readGlobalSettings (src/api.ts): src/piCommon.test.ts runs the same cases against both.
+ * readGlobalSettings (src/globalSettings.ts): src/piCommon.test.ts runs the same cases against both.
  * @param {object} raw Settings as stored by Stream Deck.
  * @returns {{serverUrl: string, apiKey: string}} The trimmed Server URL and the API key, each
  *   empty if unset.
@@ -224,7 +224,7 @@ function isPlainHttpToRemote(url) {
 }
 
 /**
- * Whether a URL's host is this machine. Matches the plugin's isLoopbackHost (src/api.ts), which
+ * Whether a URL's host is this machine. Matches the plugin's isLoopbackHost (src/serverUrl.ts), which
  * src/piCommon.test.ts checks with a shared case table:
  * localhost, [::1] and all of 127.x.x.x. The host is parsed, so user-info such as
  * http://127.0.0.1:x@remote.example can't pass for loopback; an unparseable URL isn't loopback.

@@ -60,17 +60,27 @@ export function inspectorCatalogModuleMock(instances: CatalogSpy[]) {
 }
 
 /**
- * A `vi.mock("../api", ...)` module: `apiRequest` and `logFailure` spies, a fixed connection and the
- * quick key-press timeout (5000). `vi.mock` factories are hoisted, so call this from
- * `async () => (await import(...)).apiModuleMock()`.
+ * A `vi.mock("../apiClient", ...)` module: `apiRequest` and `logFailure` spies and the quick
+ * key-press timeout (5000). `vi.mock` factories are hoisted, so call this from
+ * `async () => (await import(...)).apiClientModuleMock()`.
  * @returns The mocked module.
  */
-export function apiModuleMock() {
+export function apiClientModuleMock() {
 	return {
 		apiRequest: vi.fn(),
-		getConnection: vi.fn(() => ({ serverUrl: "https://bot.example", apiKey: "k" })),
 		logFailure: vi.fn(),
 		QUICK_KEY_PRESS_TIMEOUT_MS: 5000,
 	};
 }
 
+/**
+ * A `vi.mock("../globalSettings", ...)` module whose `getConnection` returns a fixed connection.
+ * `vi.mock` factories are hoisted, so call this from
+ * `async () => (await import(...)).globalSettingsModuleMock()`.
+ * @returns The mocked module.
+ */
+export function globalSettingsModuleMock() {
+	return {
+		getConnection: vi.fn(() => ({ serverUrl: "https://bot.example", apiKey: "k" })),
+	};
+}

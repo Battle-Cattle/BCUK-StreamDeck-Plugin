@@ -1,14 +1,8 @@
 import type { JsonObject, JsonValue } from "@elgato/utils";
 import streamDeck from "@elgato/streamdeck";
-import {
-	apiRequest,
-	type Connection,
-	connectionKey,
-	getConnection,
-	hasGlobalSettings,
-	logFailure,
-	onGlobalSettingsChanged,
-} from "./api";
+import { apiRequest, logFailure } from "./apiClient";
+import { getConnection, hasGlobalSettings, onGlobalSettingsChanged } from "./globalSettings";
+import { type Connection, connectionKey } from "./serverUrl";
 
 /** How one action's dropdown list is fetched from the bot and sent to its property inspector. */
 export interface InspectorCatalogOptions<T extends JsonValue> {

@@ -6,7 +6,7 @@ Guidance for working in this repo.
 
 `BCUK-StreamDeck-Plugin` is a Stream Deck plugin that controls the BCUK bot ([`BCUK-Bot-4`](https://github.com/Battle-Cattle/BCUK-Bot-4)) through the bot's `/api/streamdeck` routes (`src/web/routes/streamdeck*.ts` there). The README lists the actions and how releases work.
 
-- **`src/`**: the plugin's TypeScript, bundled by rolldown into `com.expiredminotaur.bcuk.sdPlugin/bin`. `plugin.ts` is the entry point. `api.ts` holds the global settings (Server URL + API key) and the HTTP client. `actions/` has one file per Stream Deck action. Logic is kept out of the action classes where possible (`sfxTriggers.ts`, `voiceChannels.ts`, `advancedCommands.ts`, …) so it can be tested.
+- **`src/`**: the plugin's TypeScript, bundled by rolldown into `com.expiredminotaur.bcuk.sdPlugin/bin`. `plugin.ts` is the entry point. `globalSettings.ts` holds the global settings (Server URL + API key), `serverUrl.ts` normalises and checks the Server URL, and `apiClient.ts` is the HTTP client. `actions/` has one file per Stream Deck action. Logic is kept out of the action classes where possible (`sfxTriggers.ts`, `voiceChannels.ts`, `advancedCommands.ts`, …) so it can be tested.
 - **`src/test-utils/`**: shared test fixtures, including `streamdeckMock.ts`, a stand-in for `@elgato/streamdeck`.
 - **`com.expiredminotaur.bcuk.sdPlugin/`**: the plugin bundle. It holds `manifest.json`, the icons (`imgs/`, regenerated with `npm run placeholders`), and the property-inspector pages in `ui/`. The pages are classic `<script>` pages with no bundler. `pi-common.js` is the shared WebSocket and settings plumbing.
 - **API changes go in both repos.** A change to a `/api/streamdeck` route in `BCUK-Bot-4` has to stay compatible with released plugin versions, or ship with a plugin update. The bot's web panel always links to the latest release.
@@ -39,7 +39,7 @@ These match `BCUK-Bot-4`'s `CLAUDE.md`, so every BCUK repo follows the same rule
 - Type what can actually arrive. A property inspector message or a new button's settings are whatever JSON Stream Deck delivers, so type them that loosely (e.g. `Partial<…>` for settings that may be `{}`) rather than as the ideal shape. `@typescript-eslint/no-unnecessary-condition` flags a guard that the types say is always true.
 - Handle every promise: `await` it, return it, or mark it `void` where fire-and-forget is intended (as `initGlobalSettings` does with `getGlobalSettings()`). An unhandled rejection in a key handler leaves the key with no alert. (Rule: `no-floating-promises`.)
 - Log with `streamDeck.logger`, not `console.*`. (Rule: `no-console`; `rolldown.config.ts` is the exception.)
-- Never log the API key or a full Server URL. Log only the URL's origin, as the plain-HTTP warning in `api.ts` does.
+- Never log the API key or a full Server URL. Log only the URL's origin, as the plain-HTTP warning in `serverUrl.ts` does.
 
 ### Complexity
 
