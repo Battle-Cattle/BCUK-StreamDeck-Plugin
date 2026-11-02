@@ -2,7 +2,7 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 import { streamDeckModuleMock } from "./test-utils/streamdeckMock";
 
 vi.mock("@elgato/streamdeck", () => streamDeckModuleMock());
-vi.mock("./api", () => ({ initGlobalSettings: vi.fn() }));
+vi.mock("./globalSettings", () => ({ initGlobalSettings: vi.fn() }));
 vi.mock("./actions/play-sfx", () => ({ PlaySfxAction: class {} }));
 vi.mock("./actions/join-voice", () => ({ JoinVoiceAction: class {} }));
 vi.mock("./actions/leave-voice", () => ({ LeaveVoiceAction: class {} }));
@@ -11,7 +11,7 @@ vi.mock("./actions/toggle-command", () => ({ ToggleCommandAction: class {} }));
 vi.mock("./actions/start-raffle", () => ({ StartRaffleAction: class {} }));
 
 import streamDeck from "@elgato/streamdeck";
-import { initGlobalSettings } from "./api";
+import { initGlobalSettings } from "./globalSettings";
 
 /** Imports plugin.ts afresh, so its start-up code runs again, and waits for its connect handling. */
 async function startPlugin(): Promise<void> {

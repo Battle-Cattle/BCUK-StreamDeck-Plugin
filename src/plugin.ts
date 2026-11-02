@@ -1,5 +1,5 @@
 import streamDeck from "@elgato/streamdeck";
-import { initGlobalSettings } from "./api";
+import { initGlobalSettings } from "./globalSettings";
 import { PlaySfxAction } from "./actions/play-sfx";
 import { JoinVoiceAction } from "./actions/join-voice";
 import { LeaveVoiceAction } from "./actions/leave-voice";

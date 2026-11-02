@@ -1,6 +1,6 @@
 import type { JsonObject, JsonValue } from "@elgato/utils";
 import { action, type KeyDownEvent, type WillAppearEvent } from "@elgato/streamdeck";
-import { QUICK_KEY_PRESS_TIMEOUT_MS } from "../api";
+import { QUICK_KEY_PRESS_TIMEOUT_MS } from "../apiClient";
 import { InspectorCatalog } from "../inspectorCatalog";
 import { alertNotConfigured, pressRequest } from "../keyRequest";
 import { fillMissingSettings } from "../buttonSettings";

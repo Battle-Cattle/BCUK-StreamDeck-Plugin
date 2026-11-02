@@ -1,4 +1,4 @@
-import { QUICK_KEY_PRESS_TIMEOUT_MS } from "./api";
+import { QUICK_KEY_PRESS_TIMEOUT_MS } from "./apiClient";
 import { alertNotConfigured, type FeedbackKey, pressRequest } from "./keyRequest";
 
 // Key logic for Start Raffle, kept out of the action class so it can be tested directly.

@@ -3,10 +3,11 @@ import { streamDeckModuleMock } from "./test-utils/streamdeckMock";
 import { fakeAction } from "./test-utils/actionMocks";
 
 vi.mock("@elgato/streamdeck", () => streamDeckModuleMock());
-vi.mock("./api", async () => (await import("./test-utils/actionMocks")).apiModuleMock());
+vi.mock("./apiClient", async () => (await import("./test-utils/actionMocks")).apiClientModuleMock());
+vi.mock("./globalSettings", async () => (await import("./test-utils/actionMocks")).globalSettingsModuleMock());
 
 import streamDeck from "@elgato/streamdeck";
-import { apiRequest, logFailure } from "./api";
+import { apiRequest, logFailure } from "./apiClient";
 import { readAmount, startRaffle } from "./raffleKeys";
 
 beforeEach(() => vi.clearAllMocks());

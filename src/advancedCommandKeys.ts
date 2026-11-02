@@ -1,5 +1,6 @@
 import type { JsonValue } from "@elgato/utils";
-import { apiRequest, getConnection, logFailure, QUICK_KEY_PRESS_TIMEOUT_MS } from "./api";
+import { apiRequest, logFailure, QUICK_KEY_PRESS_TIMEOUT_MS } from "./apiClient";
+import { getConnection } from "./globalSettings";
 import { alertNotConfigured, type FeedbackKey, pressRequest } from "./keyRequest";
 import { fetchAdvancedCommandList, invalidateAdvancedCommandList } from "./advancedCommandList";
 import { parseCommandId, toAdvancedCommands } from "./advancedCommands";

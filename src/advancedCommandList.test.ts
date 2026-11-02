@@ -2,15 +2,11 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { streamDeckModuleMock } from "./test-utils/streamdeckMock";
 
 vi.mock("@elgato/streamdeck", () => streamDeckModuleMock());
-vi.mock("./api", async (importOriginal) => ({
-	connectionKey: (await importOriginal<typeof import("./api")>()).connectionKey,
-	apiRequest: vi.fn(),
-	getConnection: vi.fn(() => ({ serverUrl: "https://bot.example", apiKey: "k" })),
-	logFailure: vi.fn(),
-	QUICK_KEY_PRESS_TIMEOUT_MS: 5000,
-}));
+vi.mock("./apiClient", async () => (await import("./test-utils/actionMocks")).apiClientModuleMock());
+vi.mock("./globalSettings", async () => (await import("./test-utils/actionMocks")).globalSettingsModuleMock());
 
-import { apiRequest, getConnection } from "./api";
+import { apiRequest } from "./apiClient";
+import { getConnection } from "./globalSettings";
 import { ADVANCED_COMMAND_LIST_TTL_MS, fetchAdvancedCommandList, invalidateAdvancedCommandList } from "./advancedCommandList";
 import { syncToggleState, toggleCommand } from "./advancedCommandKeys";
 

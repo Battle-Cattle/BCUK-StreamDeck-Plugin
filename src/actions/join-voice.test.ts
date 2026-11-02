@@ -3,11 +3,12 @@ import { streamDeckModuleMock } from "../test-utils/streamdeckMock";
 import { type CatalogSpy, fakeAction, fakeEvent } from "../test-utils/actionMocks";
 
 vi.mock("@elgato/streamdeck", () => streamDeckModuleMock());
-vi.mock("../api", async () => (await import("../test-utils/actionMocks")).apiModuleMock());
+vi.mock("../apiClient", async () => (await import("../test-utils/actionMocks")).apiClientModuleMock());
+vi.mock("../globalSettings", async () => (await import("../test-utils/actionMocks")).globalSettingsModuleMock());
 const catalogs = vi.hoisted(() => ({ instances: [] as CatalogSpy[] }));
 vi.mock("../inspectorCatalog", async () => (await import("../test-utils/actionMocks")).inspectorCatalogModuleMock(catalogs.instances));
 
-import { apiRequest, logFailure } from "../api";
+import { apiRequest, logFailure } from "../apiClient";
 import { getLastJoinedGuildId, setLastJoinedGuildId } from "../voiceState";
 import { JoinVoiceAction } from "./join-voice";
 

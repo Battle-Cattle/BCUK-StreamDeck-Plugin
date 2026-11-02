@@ -1,5 +1,5 @@
 import { action, type KeyDownEvent, SingletonAction } from "@elgato/streamdeck";
-import { QUICK_KEY_PRESS_TIMEOUT_MS } from "../api";
+import { QUICK_KEY_PRESS_TIMEOUT_MS } from "../apiClient";
 import { pressRequest } from "../keyRequest";
 import { getLastJoinedGuildId, setLastJoinedGuildId } from "../voiceState";
 

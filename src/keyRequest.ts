@@ -1,6 +1,7 @@
 import type { JsonObject } from "@elgato/utils";
 import streamDeck from "@elgato/streamdeck";
-import { apiRequest, type ApiResult, getConnection, logFailure } from "./api";
+import { apiRequest, type ApiResult, logFailure } from "./apiClient";
+import { getConnection } from "./globalSettings";
 
 /** The parts of a Stream Deck key a key-press request shows its result on. */
 export interface FeedbackKey {

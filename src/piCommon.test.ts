@@ -6,7 +6,8 @@ import { globalSettingsCases, loopbackHostCases } from "./test-utils/globalSetti
 
 vi.mock("@elgato/streamdeck", () => streamDeckModuleMock());
 
-import { isLoopbackHost, readGlobalSettings } from "./api";
+import { readGlobalSettings } from "./globalSettings";
+import { isLoopbackHost } from "./serverUrl";
 
 type PiCommon = {
 	readGlobalSettings: (raw: unknown) => { serverUrl: string; apiKey: string };

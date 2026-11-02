@@ -2,17 +2,16 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 import { streamDeckModuleMock } from "./test-utils/streamdeckMock";
 
 vi.mock("@elgato/streamdeck", () => streamDeckModuleMock());
-vi.mock("./api", async (importOriginal) => ({
-	connectionKey: (await importOriginal<typeof import("./api")>()).connectionKey,
-	apiRequest: vi.fn(),
+vi.mock("./apiClient", () => ({ apiRequest: vi.fn(), logFailure: vi.fn() }));
+vi.mock("./globalSettings", () => ({
 	getConnection: vi.fn(),
-	logFailure: vi.fn(),
 	hasGlobalSettings: vi.fn(() => true),
 	onGlobalSettingsChanged: vi.fn(),
 }));
 
 import streamDeck from "@elgato/streamdeck";
-import { apiRequest, getConnection, hasGlobalSettings, logFailure, onGlobalSettingsChanged } from "./api";
+import { apiRequest, logFailure } from "./apiClient";
+import { getConnection, hasGlobalSettings, onGlobalSettingsChanged } from "./globalSettings";
 import { InspectorCatalog } from "./inspectorCatalog";
 
 const send = vi.mocked(streamDeck.ui.sendToPropertyInspector);

@@ -12,7 +12,7 @@ export interface GlobalSettingsCase {
 
 /**
  * Cases for reading global settings, run against both the plugin's readGlobalSettings
- * (src/api.ts) and the property inspector's copy (ui/pi-common.js), so the two can't drift apart.
+ * (src/globalSettings.ts) and the property inspector's copy (ui/pi-common.js), so the two can't drift apart.
  */
 export const globalSettingsCases: GlobalSettingsCase[] = [
 	{ name: "empty settings", raw: {}, expected: { serverUrl: "", apiKey: "" } },

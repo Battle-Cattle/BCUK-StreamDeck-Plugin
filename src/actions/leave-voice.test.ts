@@ -3,9 +3,10 @@ import { streamDeckModuleMock } from "../test-utils/streamdeckMock";
 import { fakeAction, fakeEvent } from "../test-utils/actionMocks";
 
 vi.mock("@elgato/streamdeck", () => streamDeckModuleMock());
-vi.mock("../api", async () => (await import("../test-utils/actionMocks")).apiModuleMock());
+vi.mock("../apiClient", async () => (await import("../test-utils/actionMocks")).apiClientModuleMock());
+vi.mock("../globalSettings", async () => (await import("../test-utils/actionMocks")).globalSettingsModuleMock());
 
-import { apiRequest, logFailure } from "../api";
+import { apiRequest, logFailure } from "../apiClient";
 import { getLastJoinedGuildId, setLastJoinedGuildId } from "../voiceState";
 import { LeaveVoiceAction } from "./leave-voice";
 
