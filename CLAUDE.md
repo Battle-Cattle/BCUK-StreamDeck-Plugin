@@ -17,9 +17,17 @@ CI (`.github/workflows/ci.yml`) uses the latest Node `24.x` (`check-latest: true
 
 ## ALWAYS: Before committing
 
+Run the fast checks on what you changed. CI (`.github/workflows/ci.yml`) runs typecheck, the full lint, tests with coverage, the build and a pack dry run on every push, so don't repeat its full run locally:
+
 ```bash
-npm run typecheck && npm run lint && npm test && npm run build
+npm run typecheck
+npx vitest run --changed origin/main   # only the tests that import a changed file
+npx eslint $(git diff --name-only --diff-filter=d origin/main -- '*.ts' '*.js' '*.html')
 ```
+
+`--changed` follows imports from the changed files, so it misses tests that depend on something indirectly. **Run the full `npm test` instead** when the change touches `src/test-utils/`, `manifest.json`, `package.json`/`package-lock.json`, or a `tsconfig*`/`vitest*`/`eslint` config. Run `npm run build` too when the change touches `rolldown.config.ts`, the decorators, or the `@elgato/streamdeck` version.
+
+**CI is the gate, not the local run.** A PR isn't done until CI is green. If it fails, reproduce the failing check locally, fix it, and show it passing before pushing again.
 
 When a release is part of the change, bump `Version` in `manifest.json` and `version` in `package.json` together (`npm version X.Y.Z --no-git-tag-version`). `version.test.ts` fails if they drift apart.
 
@@ -52,7 +60,7 @@ Qlty reports function complexity, too many returns, deep nesting, long parameter
 - A fix for a bug or a review finding gets a test that fails without the fix.
 - Mock `@elgato/streamdeck` with `src/test-utils/streamdeckMock.ts` rather than writing a new mock in each file. For an action class, `src/test-utils/actionMocks.ts` has a fake `ev.action` and event (see `src/actions/*.test.ts`).
 - `vitest.config.ts` lowers the `@action` decorators the same way `rolldown.config.ts` does. Change both together.
-- Run `npm test` and confirm all tests pass before committing.
+- Run the tests for what you changed before committing (see "ALWAYS: Before committing" for when that means the full suite), and make sure CI's full run passes.
 
 ### Docstrings
 
