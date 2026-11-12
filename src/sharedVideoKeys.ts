@@ -46,7 +46,7 @@ export async function playSharedVideo(key: FeedbackKey, savedId?: JsonValue): Pr
 		await key.showAlert();
 		return;
 	}
-	if (reached === 0) {
+	if (reached <= 0) {
 		streamDeck.logger.warn(`Play Shared Video ${videoId}: no shared overlay is connected.`);
 		await key.showAlert();
 		return;

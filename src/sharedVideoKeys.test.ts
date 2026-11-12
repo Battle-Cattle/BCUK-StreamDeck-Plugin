@@ -60,6 +60,16 @@ describe("playSharedVideo", () => {
 		expect(key.showOk).not.toHaveBeenCalled();
 	});
 
+	it("alerts when the reached count is negative", async () => {
+		vi.mocked(apiRequest).mockResolvedValue({ ok: true, data: { ok: true, triggered: true, reached: -1 } });
+		const key = fakeAction();
+
+		await playSharedVideo(key, "7");
+
+		expect(key.showAlert).toHaveBeenCalled();
+		expect(key.showOk).not.toHaveBeenCalled();
+	});
+
 	it("alerts when no shared overlay is connected", async () => {
 		vi.mocked(apiRequest).mockResolvedValue({ ok: true, data: { ok: true, triggered: true, reached: 0 } });
 		const key = fakeAction();
