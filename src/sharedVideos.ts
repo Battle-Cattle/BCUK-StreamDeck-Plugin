@@ -17,7 +17,7 @@ export interface SharedVideo extends JsonObject {
  * @param value The field from the bot's response.
  * @returns The count, or null when it's missing or not a non-negative integer.
  */
-function toCount(value: JsonValue | undefined): number | null {
+function toCount(value?: JsonValue): number | null {
 	return typeof value === "number" && Number.isInteger(value) && value >= 0 ? value : null;
 }
 
@@ -29,7 +29,7 @@ function toCount(value: JsonValue | undefined): number | null {
  * @returns The well-formed videos (positive integer id and non-empty name), or an empty list if
  *   `raw` isn't an array.
  */
-export function toSharedVideos(raw: JsonValue | undefined): SharedVideo[] {
+export function toSharedVideos(raw?: JsonValue): SharedVideo[] {
 	if (!Array.isArray(raw)) return [];
 	return raw.flatMap((item) => {
 		const video = asObject(item);
@@ -48,7 +48,7 @@ export function toSharedVideos(raw: JsonValue | undefined): SharedVideo[] {
  * @param value The saved setting.
  * @returns The id, or null when none is chosen.
  */
-export function parseVideoId(value: JsonValue | undefined): number | null {
+export function parseVideoId(value?: JsonValue): number | null {
 	const id = typeof value === "string" && /^\d+$/.test(value) ? Number(value) : NaN;
 	return Number.isSafeInteger(id) && id > 0 ? id : null;
 }

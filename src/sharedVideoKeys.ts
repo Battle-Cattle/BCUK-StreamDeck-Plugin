@@ -17,7 +17,7 @@ import { asObject } from "./json";
  * @param savedId The button's saved video id.
  * @returns Resolves once the key shows the result.
  */
-export async function playSharedVideo(key: FeedbackKey, savedId: JsonValue | undefined): Promise<void> {
+export async function playSharedVideo(key: FeedbackKey, savedId?: JsonValue): Promise<void> {
 	const videoId = parseVideoId(savedId);
 	if (videoId === null) {
 		await alertNotConfigured(key, "Play Shared Video: no video configured.");
