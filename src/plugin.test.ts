@@ -9,6 +9,7 @@ vi.mock("./actions/leave-voice", () => ({ LeaveVoiceAction: class {} }));
 vi.mock("./actions/trigger-command", () => ({ TriggerCommandAction: class {} }));
 vi.mock("./actions/toggle-command", () => ({ ToggleCommandAction: class {} }));
 vi.mock("./actions/start-raffle", () => ({ StartRaffleAction: class {} }));
+vi.mock("./actions/play-shared-video", () => ({ PlaySharedVideoAction: class {} }));
 
 import streamDeck from "@elgato/streamdeck";
 import { initGlobalSettings } from "./globalSettings";
@@ -31,7 +32,7 @@ describe("plugin start-up", () => {
 		await startPlugin();
 
 		expect(initGlobalSettings).toHaveBeenCalledOnce();
-		expect(streamDeck.actions.registerAction).toHaveBeenCalledTimes(6);
+		expect(streamDeck.actions.registerAction).toHaveBeenCalledTimes(7);
 		expect(streamDeck.connect).toHaveBeenCalledOnce();
 		expect(streamDeck.logger.error).not.toHaveBeenCalled();
 	});

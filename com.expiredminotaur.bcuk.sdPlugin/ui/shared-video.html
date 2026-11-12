@@ -1,0 +1,83 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+	<meta charset="utf-8" />
+	<title>Play Shared Video</title>
+	<link rel="stylesheet" href="pi-common.css" />
+</head>
+<body>
+
+<div class="row">
+	<label for="serverUrl">Server URL</label>
+	<input type="text" id="serverUrl" placeholder="https://bot.example.com" autocomplete="off" spellcheck="false" />
+</div>
+<div id="urlWarning"></div>
+<div class="row">
+	<label for="apiKey">API Key</label>
+	<input type="password" id="apiKey" placeholder="64-char hex key" autocomplete="off" spellcheck="false" />
+</div>
+<div class="row">
+	<label for="video">Video</label>
+	<select id="video">
+		<option value="">— select a video —</option>
+	</select>
+</div>
+<div class="row">
+	<label></label>
+	<button id="refreshBtn">Refresh Videos</button>
+</div>
+<div id="status"></div>
+
+<script src="pi-common.js"></script>
+<script>
+	/* global selectSaved, setButtonSettings, setupCatalogPage */
+	// Per-button settings: just the video's id. The list of enabled shared videos comes from the
+	// plugin, with how many connected overlays have each stored (when the bot reports it).
+	const videoSelect = document.getElementById("video");
+	let videoId = "";
+
+	const page = setupCatalogPage({
+		selectId: "video",
+		placeholder: "— select a video —",
+		loadedEvent: "videosLoaded",
+		errorEvent: "videosError",
+		listKey: "videos",
+		refreshEvent: "refreshVideos",
+		noun: "videos",
+		render: renderVideos,
+		onLoaded: () => selectSaved(videoSelect, videoId, "Saved video", true),
+	});
+
+	/**
+	 * Shows the button's saved video (pi-common.js calls this when its settings arrive).
+	 * @param {object} s The button's settings.
+	 */
+	function onButtonSettings(s) {
+		videoId = s.videoId || "";
+		selectSaved(videoSelect, videoId, "Saved video", page.isLoaded());
+	}
+
+	/**
+	 * Lists the shared videos, marking the ones not yet stored on every connected overlay.
+	 * @param {HTMLSelectElement} sel The emptied dropdown.
+	 * @param {Array<{id: number, name: string, ready: number|null, connected: number|null}>} videos The videos from the plugin.
+	 */
+	function renderVideos(sel, videos) {
+		for (const v of videos) {
+			const opt = document.createElement("option");
+			opt.value = String(v.id);
+			const known = v.ready !== null && v.connected !== null && v.connected > 0;
+			const partial = known && v.ready < v.connected;
+			opt.textContent = partial ? `${v.name} — ready on ${v.ready}/${v.connected}` : v.name;
+			sel.appendChild(opt);
+		}
+	}
+
+	videoSelect.addEventListener("change", () => {
+		videoId = videoSelect.value;
+		setButtonSettings({ videoId });
+	});
+</script>
+
+</body>
+</html>

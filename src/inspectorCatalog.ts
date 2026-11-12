@@ -22,6 +22,21 @@ export interface InspectorCatalogOptions<T extends JsonValue> {
 }
 
 /**
+ * Runs a catalog's parser, treating a throw as "no list". The body is whatever JSON the bot sent,
+ * and a `null` body passes the API client's checks, so a parser that reads a field of it can throw.
+ * @param parse The catalog's list parser.
+ * @param body The bot's response body.
+ * @returns The parsed list, or null when the parser found none or threw.
+ */
+function parseOrNull<T extends JsonValue>(parse: (body: JsonObject) => T[] | null, body: JsonObject): T[] | null {
+	try {
+		return parse(body);
+	} catch {
+		return null;
+	}
+}
+
+/**
  * An in-memory list (SFX commands, voice channels) shared by every button of one action and
  * shown in its property inspector's dropdown. Kept here rather than in per-button settings,
  * which Stream Deck re-sends with every key press.
@@ -92,7 +107,7 @@ export class InspectorCatalog<T extends JsonValue> {
 			await this.send({ event: errorEvent, error: result.error });
 			return;
 		}
-		const items = parse(result.data);
+		const items = parseOrNull(parse, result.data);
 		if (items === null) {
 			logFailure(`Fetch ${label}`, { status: null, error: `Server response had no ${label} list` });
 			await this.send({ event: errorEvent, error: `Server response had no ${label} list — check the Server URL` });
