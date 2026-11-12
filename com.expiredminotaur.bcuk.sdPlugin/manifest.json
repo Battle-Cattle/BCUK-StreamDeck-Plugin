@@ -125,6 +125,22 @@
 					"Name": "Default"
 				}
 			]
+		},
+		{
+			"Name": "Play Shared Video",
+			"UUID": "com.expiredminotaur.bcuk.shared-video",
+			"Icon": "imgs/actions/play-shared-video/icon",
+			"Tooltip": "Play a shared video on every connected shared overlay at once.",
+			"PropertyInspectorPath": "ui/shared-video.html",
+			"Controllers": [
+				"Keypad"
+			],
+			"States": [
+				{
+					"Image": "imgs/actions/play-shared-video/key-default",
+					"Name": "Default"
+				}
+			]
 		}
 	]
 }

@@ -104,6 +104,21 @@ function ticketSvg(size) {
 }
 
 /**
+ * Play-button-in-a-screen icon for play-shared-video
+ * @param {number} size Width and height in pixels.
+ * @returns {Buffer} The SVG.
+ */
+function videoSvg(size) {
+	const s = size;
+	return Buffer.from(`
+		<svg xmlns="http://www.w3.org/2000/svg" width="${s}" height="${s}" viewBox="0 0 24 24">
+			<rect width="24" height="24" fill="none"/>
+			<path d="M4 5h16a2 2 0 0 1 2 2v10a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V7a2 2 0 0 1 2-2z" fill="white" opacity="0.9"/>
+			<path d="M10 8.5v7l6-3.5z" fill="rgb(45,45,45)"/>
+		</svg>`);
+}
+
+/**
  * BCUK label SVG for marketplace / category icons
  * @param {number} size Width and height in pixels.
  * @returns {Buffer} The SVG.
@@ -212,6 +227,12 @@ await Promise.all([
 	makeIcon(`${root}/imgs/actions/start-raffle/icon@2x.png`, 56, DARK, ticketSvg(40)),
 	makeIcon(`${root}/imgs/actions/start-raffle/key-default.png`, 72, DARK, ticketSvg(48)),
 	makeIcon(`${root}/imgs/actions/start-raffle/key-default@2x.png`, 144, DARK, ticketSvg(96)),
+
+	// play-shared-video
+	makeIcon(`${root}/imgs/actions/play-shared-video/icon.png`, 28, DARK, videoSvg(20)),
+	makeIcon(`${root}/imgs/actions/play-shared-video/icon@2x.png`, 56, DARK, videoSvg(40)),
+	makeIcon(`${root}/imgs/actions/play-shared-video/key-default.png`, 72, DARK, videoSvg(48)),
+	makeIcon(`${root}/imgs/actions/play-shared-video/key-default@2x.png`, 144, DARK, videoSvg(96)),
 ]);
 
 console.log("\nDone.");

@@ -12,6 +12,7 @@ A Stream Deck plugin for controlling the **BCUK Discord bot** from your Stream D
 | **Trigger Command** | Fires one of your own advanced commands (set up on the bot's **Advanced Commands** page) for free — no point cost, cooldowns or limits. Shows an alert if the command is disabled or gone. |
 | **Toggle Command** | Enables or disables one of your advanced commands. The key shows the command's current state (bright bolt = enabled, dimmed = disabled). |
 | **Start Raffle** | Starts a 60-second loyalty-points raffle in your Twitch chat for the amount in its settings (e.g. `100` or `1K`), the same as typing `!raffle <amount>`. Viewers enter with `!join` in your own chat. Shows an alert if a raffle is already running or loyalty points are turned off. |
+| **Play Shared Video** | Plays one of the shared videos on every streamer's shared video overlay at once (the browser source at `/overlay/shared/<login>`), after a short lead time so the overlays start together. Its settings list the enabled shared videos and mark any that aren't stored on every connected overlay yet (they still play, but may start late there). Shows an alert if the video is disabled or gone, if another shared video was triggered a moment ago, or if no shared overlay is connected. Any approved API key can use it; the key's owner doesn't need to be a streamer. |
 
 Trigger Command, Toggle Command and Start Raffle need your Stream Deck key's owner to be a monitored streamer on the bot. Start Raffle also needs Loyalty Points turned on.
 
