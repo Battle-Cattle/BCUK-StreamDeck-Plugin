@@ -1,4 +1,4 @@
-import type { JsonObject, JsonValue } from "@elgato/utils";
+import type { JsonValue } from "@elgato/utils";
 import { action, type KeyDownEvent, type WillAppearEvent } from "@elgato/streamdeck";
 import { fillMissingSettings } from "../buttonSettings";
 import { InspectorCatalog } from "../inspectorCatalog";
@@ -7,11 +7,8 @@ import { type SharedVideo, toSharedVideos } from "../sharedVideos";
 import { CatalogAction } from "./catalogAction";
 
 // Only the chosen video lives in per-button settings (see play-sfx.ts for why); the list for the
-// dropdown lives in the catalog.
-interface SharedVideoSettings extends JsonObject {
-	[key: string]: JsonValue;
-	videoId: string;
-}
+// dropdown lives in the catalog. A new button's settings are `{}`, hence the Partial.
+type SharedVideoSettings = Partial<{ videoId: JsonValue }>;
 
 @action({ UUID: "com.expiredminotaur.bcuk.shared-video" })
 export class PlaySharedVideoAction extends CatalogAction<SharedVideoSettings, SharedVideo> {

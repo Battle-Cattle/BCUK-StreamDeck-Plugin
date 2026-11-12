@@ -47,6 +47,23 @@ describe("InspectorCatalog", () => {
 		expect(send).toHaveBeenLastCalledWith({ event: "thingsLoaded", things: ["a", "b"] });
 	});
 
+	it("treats a parser that throws (e.g. on a null body) as a response with no list", async () => {
+		vi.mocked(apiRequest).mockResolvedValue({ ok: true, data: null as never });
+		const catalog = new InspectorCatalog<string>({
+			label: "things",
+			path: "/things",
+			parse: (body) => (Array.isArray(body.things) ? [] : null),
+			loadedEvent: "thingsLoaded",
+			errorEvent: "thingsError",
+			listKey: "things",
+		});
+
+		await catalog.refresh(conn);
+
+		expect(logFailure).toHaveBeenCalledWith("Fetch things", { status: null, error: "Server response had no things list" });
+		expect(send).toHaveBeenCalledWith({ event: "thingsError", error: "Server response had no things list — check the Server URL" });
+	});
+
 	it("sends the bot's error to the inspector and logs it", async () => {
 		const failure = { ok: false as const, status: 403, error: "Key not approved for any guild" };
 		vi.mocked(apiRequest).mockResolvedValue(failure);

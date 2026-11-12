@@ -10,7 +10,8 @@ import { asObject } from "./json";
 
 /**
  * Plays a button's shared video on every connected shared overlay, showing OK only when the bot
- * actually sent it. The bot answers 200 in two cases where nothing was sent, and both show an alert:
+ * confirms it sent it (`triggered: true` and a `reached` count above zero; a 200 without that
+ * confirmation alerts too). The bot answers 200 in two cases where nothing was sent:
  * another trigger came within its global cooldown (`triggered: false`), or no shared overlay was
  * connected (`reached: 0`). A disabled or deleted video is a 404 and alerts too.
  * @param key The pressed key.
@@ -37,7 +38,15 @@ export async function playSharedVideo(key: FeedbackKey, savedId?: JsonValue): Pr
 		await key.showAlert();
 		return;
 	}
-	if (body?.reached === 0) {
+	// OK needs the bot's own confirmation that it sent the video to at least one overlay; a body
+	// without it (empty, null, or from something other than the bot) is not proof of delivery.
+	const reached = body?.reached;
+	if (body?.triggered !== true || typeof reached !== "number") {
+		streamDeck.logger.warn(`Play Shared Video ${videoId}: the response didn't confirm the video was sent.`);
+		await key.showAlert();
+		return;
+	}
+	if (reached === 0) {
 		streamDeck.logger.warn(`Play Shared Video ${videoId}: no shared overlay is connected.`);
 		await key.showAlert();
 		return;

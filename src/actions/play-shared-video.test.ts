@@ -36,6 +36,14 @@ describe("PlaySharedVideoAction", () => {
 		expect(playSharedVideo).toHaveBeenCalledWith(action, "7");
 	});
 
+	it("passes a new button's empty settings through, for the key to alert on", async () => {
+		const action = fakeAction();
+
+		await new PlaySharedVideoAction().onKeyDown(fakeEvent({ settings: {} }, action));
+
+		expect(playSharedVideo).toHaveBeenCalledWith(action, undefined);
+	});
+
 	it("gives a new button an empty video, and leaves a configured one alone", async () => {
 		const play = new PlaySharedVideoAction();
 		const fresh = fakeAction();
