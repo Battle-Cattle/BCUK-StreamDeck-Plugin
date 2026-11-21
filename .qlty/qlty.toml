@@ -1,0 +1,13 @@
+config_version = "0"
+
+[[source]]
+name = "default"
+default = true
+
+# Qlty runs ESLint in its own sandbox. Without the project's dependencies, type-aware rules can't
+# resolve `@elgato/utils`, so JsonValue/JsonObject become 'error' types and
+# no-redundant-type-constituents fires on every `JsonValue | undefined`.
+# package_file makes Qlty install them from package.json before linting.
+[[plugin]]
+name = "eslint"
+package_file = "package.json"
