@@ -11,3 +11,8 @@ default = true
 [[plugin]]
 name = "eslint"
 package_file = "package.json"
+
+# A qlty.toml replaces Qlty's auto-detected plugin set, so each plugin that should keep running
+# has to be listed. zizmor reports unpinned workflow actions (zizmor/unpinned-uses).
+[[plugin]]
+name = "zizmor"
