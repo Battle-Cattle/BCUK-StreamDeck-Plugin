@@ -1,0 +1,79 @@
+# Qlty CLI and Qlty Cloud configuration. Based on the config `qlty init` generates, so the
+# plugin set and patterns match what Qlty Cloud ran before this file was committed.
+# A qlty.toml replaces the generated one, so every plugin that should keep running is listed.
+# Reference: https://qlty.sh/d/qlty-toml
+config_version = "0"
+
+exclude_patterns = [
+  "*_min.*",
+  "*-min.*",
+  "*.min.*",
+  "**/.yarn/**",
+  "**/*.d.ts",
+  "**/assets/**",
+  "**/bower_components/**",
+  "**/build/**",
+  "**/cache/**",
+  "**/config/**",
+  "**/db/**",
+  "**/deps/**",
+  "**/dist/**",
+  "**/extern/**",
+  "**/external/**",
+  "**/generated/**",
+  "**/Godeps/**",
+  "**/gradlew/**",
+  "**/mvnw/**",
+  "**/node_modules/**",
+  "**/protos/**",
+  "**/seed/**",
+  "**/target/**",
+  "**/templates/**",
+  "**/testdata/**",
+  "**/vendor/**",
+]
+
+test_patterns = [
+  "**/test/**",
+  "**/spec/**",
+  "**/*.test.*",
+  "**/*.spec.*",
+  "**/*_test.*",
+  "**/*_spec.*",
+  "**/test_*.*",
+  "**/spec_*.*",
+]
+
+[smells]
+mode = "comment"
+
+[[source]]
+name = "default"
+default = true
+
+[[plugin]]
+name = "actionlint"
+
+# The generated config also set package_filters = ["eslint"], which installs only the eslint
+# package. The type-aware rules then couldn't resolve `@elgato/utils`, so JsonValue/JsonObject
+# became 'error' types and no-redundant-type-constituents fired on `JsonValue | undefined`.
+# Without the filter Qlty installs everything in package.json, including the types and the
+# ESLint plugins eslint.config.js imports.
+[[plugin]]
+name = "eslint"
+version = "10.15.0"
+package_file = "package.json"
+
+[[plugin]]
+name = "osv-scanner"
+
+[[plugin]]
+name = "ripgrep"
+mode = "comment"
+
+[[plugin]]
+name = "trufflehog"
+
+# Reports unpinned workflow actions (zizmor/unpinned-uses).
+[[plugin]]
+name = "zizmor"
